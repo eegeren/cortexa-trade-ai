@@ -3,12 +3,43 @@ from fastapi.middleware.cors import CORSMiddleware
 import requests
 import os
 from dotenv import load_dotenv
+from __future__ import annotations
 import math
 
 # Ortam değişkenlerini yükle (.env)
 load_dotenv()
 
 app = FastAPI(title="Coinspace API", version="1.0.0")
+
+import os
+from pathlib import Path
+from starlette.staticfiles import StaticFiles
+
+def _pick_web_dir() -> Path | None:
+    # 1) ENV öncelikli
+    env_dir = os.getenv("WEB_DIR")
+    if env_dir and (Path(env_dir) / "index.html").exists():
+        return Path(env_dir).resolve()
+    # 2) Çalışma dizini /web
+    if (Path.cwd() / "web" / "index.html").exists():
+        return (Path.cwd() / "web").resolve()
+    # 3) Bu dosyanın 2 üstünde /web (…/src/live/ → proje kökü)
+    here = Path(__file__).resolve()
+    cand = here.parents[2] / "web" if len(here.parents) >= 3 else None
+    if cand and (cand / "index.html").exists():
+        return cand.resolve()
+    return None
+
+WEB_DIR = _pick_web_dir()
+if WEB_DIR:
+    # /assets varsa ayrı mount (opsiyonel)
+    if (WEB_DIR / "assets").exists():
+        app.mount("/assets", StaticFiles(directory=str(WEB_DIR / "assets")), name="assets")
+    # ⚠️ EN ÖNEMLİSİ: kökü web klasörüne bağla (html=True → index.html döner)
+    app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="webroot")
+else:
+    # Bulunamazsa log at (Railway loglarında görürsünüz)
+    print("[web] index.html bulunamadı; WEB_DIR ayarlayın veya /web dizini ekleyin.")
 
 # CORS ayarları (Squarespace vb. dış bağlantılar için)
 app.add_middleware(

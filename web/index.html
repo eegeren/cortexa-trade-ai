@@ -1,221 +1,101 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8" />
-  <title>Cortexa Advisor</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- İstersen API tabanını burada override et: -->
-  <!-- <meta name="api-base" content="https://o5zr614i.up.railway.app"> -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <style>
-    :root{
-      --bg:#f6f7fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
-      --accent:#2563eb; --accent-2:#22c55e; --danger:#ef4444;
-      --bubble-user:#e8f0ff; --bubble-ai:#fff; --shadow:0 10px 30px rgba(2,6,23,.08);
-      --chip:#eef2ff; --chip-ink:#1e293b; --badge:#f1f5f9;
-    }
-    [data-theme="dark"]{
-      --bg:#0b1220; --card:#0f172a; --ink:#e5e7eb; --muted:#94a3b8;
-      --accent:#3b82f6; --bubble-user:#0f274e; --bubble-ai:#0c1426;
-      --chip:#0b1a33; --chip-ink:#cbd5e1; --badge:#0b1a33;
-      --shadow:0 10px 30px rgba(0,0,0,.35);
-    }
-    *{box-sizing:border-box} html,body{height:100%}
-    body{margin:0; font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
-      color:var(--ink); background:linear-gradient(180deg,rgba(59,130,246,.06) 0%, var(--bg) 140px);}
-    .topbar{position:sticky; top:0; z-index:10; backdrop-filter:saturate(1.2) blur(6px);
-      background:linear-gradient(180deg,rgba(255,255,255,.60),rgba(255,255,255,0)); border-bottom:1px solid rgba(100,116,139,.15);}
-    [data-theme="dark"] .topbar{ background:linear-gradient(180deg,rgba(2,6,23,.55),rgba(2,6,23,0)); }
-    .bar-wrap{max-width:1000px; margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:12px;}
-    .logo{display:flex; align-items:center; gap:10px; font-weight:800}
-    .logo-badge{width:34px; height:34px; border-radius:10px; background:#111827; color:#fff; display:grid; place-items:center; font-weight:900}
-    [data-theme="dark"] .logo-badge{background:#0b1220; border:1px solid #1f2937}
-    .spacer{flex:1}
-    .icon-btn{height:38px; padding:0 12px; border-radius:10px; border:1px solid rgba(100,116,139,.25); background:transparent; color:var(--ink); cursor:pointer}
-    .wrap{max-width:1000px; margin:20px auto; padding:0 16px}
-    .board{background:var(--card); border-radius:20px; box-shadow:var(--shadow); padding:18px; height:60vh; overflow:auto; scroll-behavior:smooth;}
-    .row{display:flex; gap:12px; margin:12px 0}
-    .row.user{justify-content:flex-end}
-    .bubble{max-width:min(76%, 720px); padding:14px 16px; border-radius:14px; background:var(--bubble-ai); border:1px solid rgba(100,116,139,.2);}
-    .row.user .bubble{background:var(--bubble-user); border-color:rgba(59,130,246,.35)}
-    .head{display:flex; align-items:center; gap:10px; margin-bottom:6px}
-    .copy{margin-left:auto; background:transparent; border:1px solid rgba(100,116,139,.25); color:var(--ink); padding:6px 10px; border-radius:10px; cursor:pointer; font-size:13px}
-    .md :is(h1,h2,h3){margin:.6em 0 .35em} .md h2{font-size:18px} .md h3{font-size:16px}
-    .md p{margin:.45em 0} .md strong{font-weight:700}
-    .md table{border-collapse:collapse; width:100%; margin:.6em 0; border:1px solid rgba(100,116,139,.25); border-radius:10px; overflow:hidden}
-    .md th,.md td{border-bottom:1px solid rgba(100,116,139,.25); padding:10px 12px; text-align:left}
-    .chips{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0}
-    .chip{padding:6px 10px; border-radius:999px; background:var(--chip); color:var(--chip-ink); border:1px solid rgba(100,116,139,.25); cursor:pointer; font-size:13px}
-    .controlbar{display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; background:rgba(148,163,184,.12);
-      border:1px solid rgba(100,116,139,.22); padding:12px; border-radius:14px; margin-top:12px;}
-    .ctrl{display:flex; flex-direction:column; gap:6px; min-width:140px}
-    .ctrl.small{min-width:110px}
-    .ctrl .lbl{font-size:12px; color:var(--muted); font-weight:600; letter-spacing:.2px}
-    .ctrl input, .ctrl select, .ctrl textarea{height:40px; border:1px solid rgba(100,116,139,.22); border-radius:10px; padding:0 10px; background:transparent; color:var(--ink); outline:none;}
-    .ctrl textarea{height:auto; min-height:40px; padding:8px 10px; resize:vertical}
-    .ctrl input:focus, .ctrl select:focus, .ctrl textarea:focus{border-color:#93c5fd; box-shadow:0 0 0 3px rgba(59,130,246,.15)}
-    .btn{height:44px; padding:0 18px; border-radius:12px; border:0; color:#fff; background:var(--accent); font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(37,99,235,.25);}
-    .btn:disabled{opacity:.6; cursor:not-allowed; box-shadow:none}
-    .typing{opacity:.7}
-    @media (max-width:720px){ .ctrl{min-width:120px} .ctrl.small{min-width:100px} .btn{width:100%} }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cortexa Advisor</title>
+    <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="topbar">
-    <div class="bar-wrap">
-      <div class="logo"><div class="logo-badge">CX</div> Cortexa Advisor</div>
-      <div class="spacer"></div>
-      <button class="icon-btn" id="themeBtn">🌗 Tema</button>
-    </div>
-  </div>
+    <header>
+        <h1>CX Cortexa Advisor</h1>
+        <button id="theme-toggle">Tema</button>
+    </header>
 
-  <div class="wrap">
-    <div class="board" id="board"></div>
+    <main>
+        <div id="chat-container">
+            <div id="messages"></div>
+            <div id="error-message" class="hidden"></div>
+        </div>
 
-    <div class="chips" id="examples">
-      <div class="chip" data-q="btc vs euro (6 ay, orta risk, 100k, %2 stop)">btc vs euro (ör.)</div>
-      <div class="chip" data-q="altın almalı mıyım? (12 ay, düşük risk)">altın almalı mıyım?</div>
-      <div class="chip" data-q="Apple mı Tesla mı? (orta risk, 6 ay, 50k)">Apple vs Tesla</div>
-      <div class="chip" data-q="btc kaldıraçlı öner (orta risk, 50k, %1.5 stop)">btc kaldıraçlı öner</div>
-    </div>
+        <div id="quick-questions">
+            <button>btc vs euro (ör.)</button>
+            <button>altın almalı mıyım?</button>
+            <button>Apple vs Tesla</button>
+            <button>btc kaldıraçlı öner</button>
+        </div>
 
-    <div class="controlbar">
-      <div class="ctrl" style="flex:1 1 280px">
-        <div class="lbl">Soru</div>
-        <textarea id="q" rows="1" placeholder="Örn: btc vs euro (6 ay, orta risk, 100k, %2 stop)"></textarea>
-      </div>
-      <div class="ctrl small">
-        <div class="lbl">Risk</div>
-        <select id="risk"><option value="">Seç</option><option>dusuk</option><option>orta</option><option>yuksek</option></select>
-      </div>
-      <div class="ctrl small">
-        <div class="lbl">Vade</div>
-        <input id="horizon" type="text" placeholder="örn. 6 ay" />
-      </div>
-      <div class="ctrl small">
-        <div class="lbl">Sermaye</div>
-        <input id="capital" type="number" placeholder="örn. 100000" />
-      </div>
-      <div class="ctrl small">
-        <div class="lbl">Stop</div>
-        <input id="stop" type="number" step="0.001" placeholder="0.02" />
-      </div>
-      <div class="ctrl small">
-        <div class="lbl">Fiyatlar</div>
-        <label style="height:40px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid rgba(100,116,139,.22);border-radius:10px;color:var(--muted);">
-          <input id="prices" type="checkbox" checked /> Ekle
-        </label>
-      </div>
-      <button id="send" class="btn">Gönder</button>
-    </div>
-  </div>
+        <form id="advisor-form">
+            <input type="text" id="question" placeholder="örn: btc vs euro (6 ay, orta risk, 100k, %2 stop)" />
+            <select id="risk">
+                <option value="">Seç</option>
+                <option value="low">Düşük</option>
+                <option value="medium">Orta</option>
+                <option value="high">Yüksek</option>
+            </select>
+            <input type="text" id="vade" placeholder="örn. 6 ay" />
+            <input type="number" id="sermaye" placeholder="örn. 100000" />
+            <input type="number" step="0.01" id="stop" value="0.02" />
+            <label>
+                <input type="checkbox" id="fiyatlar" checked /> Fiyatlar
+            </label>
+            <button type="submit">Gönder</button>
+        </form>
+    </main>
 
-  <script>
-    // ====== API tabanı (otonom + override) ======
-    (function () {
-      const meta = document.querySelector('meta[name="api-base"]');
-      const fromMeta = (meta && meta.content || "").trim().replace(/\/+$/, "");
-      const isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
-      // Lokal geliştirmede 8081'e, prod'da aynı origin'e istek at.
-      window.API_BASE = fromMeta || (isLocal ? "http://localhost:8081" : "");
-      window.apiUrl = (p) => (window.API_BASE ? window.API_BASE + p : p);
-    })();
+    <script>
+        // API base ayarı: her zaman aynı origin
+        const API_BASE = "";
 
-    // ====== Tema ======
-    const THEME_KEY = "cx_theme";
-    const themeBtn = document.getElementById("themeBtn");
-    const setTheme = (t)=>{ document.documentElement.setAttribute("data-theme", t); localStorage.setItem(THEME_KEY, t); };
-    setTheme(localStorage.getItem(THEME_KEY) || "light");
-    themeBtn.onclick = ()=> setTheme(document.documentElement.getAttribute("data-theme")==="light"?"dark":"light");
+        const form = document.getElementById("advisor-form");
+        const messages = document.getElementById("messages");
+        const errorMessage = document.getElementById("error-message");
 
-    // ====== Elemanlar ======
-    const elBoard = document.getElementById("board");
-    const elQ = document.getElementById("q");
-    const elRisk = document.getElementById("risk");
-    const elHorizon = document.getElementById("horizon");
-    const elCap = document.getElementById("capital");
-    const elStop = document.getElementById("stop");
-    const elPrices = document.getElementById("prices");
-
-    // Örnek chipler
-    document.getElementById("examples").addEventListener("click", (e)=>{
-      const chip = e.target.closest(".chip"); if(!chip) return;
-      elQ.value = chip.dataset.q || ""; autoRows(); elQ.focus();
-    });
-
-    // Autosize
-    function autoRows(){ elQ.style.height="auto"; elQ.style.height=Math.min(elQ.scrollHeight,180)+"px"; }
-    elQ.addEventListener("input", autoRows); autoRows();
-
-    // Baloncuk
-    function addBubble({role, html, raw, typing}) {
-      const row = document.createElement("div");
-      row.className = "row " + (role === "user" ? "user" : "ai");
-      const bubble = document.createElement("div");
-      bubble.className = "bubble" + (typing ? " typing" : "");
-      const head = document.createElement("div");
-      head.className = "head";
-      if (role !== "user" && !typing) {
-        const btn = document.createElement("button");
-        btn.className = "copy"; btn.textContent = "Kopyala";
-        btn.onclick = () => { navigator.clipboard.writeText(raw || bubble.innerText); btn.textContent="Kopyalandı ✓"; setTimeout(()=>btn.textContent="Kopyala",1200); };
-        head.appendChild(btn);
-      }
-      bubble.appendChild(head);
-      const content = document.createElement("div"); content.className="md";
-      content.innerHTML = marked.parse(html ?? (typing ? "_yazıyor…_" : ""));
-      bubble.appendChild(content);
-      row.appendChild(bubble); elBoard.appendChild(row); elBoard.scrollTop = elBoard.scrollHeight;
-      return { row, bubble, content };
-    }
-
-    function userTextPreview(payload){
-      const parts = [];
-      if (payload.horizon) parts.push(`Vade: ${payload.horizon}`);
-      if (payload.risk) parts.push(`Risk: ${payload.risk}`);
-      if (payload.capital) parts.push(`Sermaye: ${Number(payload.capital).toLocaleString("tr-TR")}`);
-      if (payload.stop_pct) parts.push(`Stop: ${payload.stop_pct}`);
-      return parts.length ? " — " + parts.join(" | ") : "";
-    }
-
-    async function ask() {
-      const user_query = elQ.value.trim(); if (!user_query) return;
-      const payload = {
-        user_query,
-        horizon: elHorizon.value.trim(),
-        risk: elRisk.value.trim(),
-        capital: elCap.value ? Number(elCap.value) : null,
-        stop_pct: elStop.value ? Number(elStop.value) : null,
-        show_prices: elPrices.checked,
-        suppress_disclaimer: true
-      };
-      addBubble({ role:"user", html: marked.parseInline(user_query + userTextPreview(payload)) });
-      const typing = addBubble({ role:"ai", html: "_yazıyor…_", typing: true });
-
-      try {
-        const res = await fetch(apiUrl("/advice"), {
-          method:"POST", headers: {"Content-Type":"application/json"},
-          body: JSON.stringify(payload),
-        });
-        typing.bubble.classList.remove("typing");
-        if (!res.ok) {
-          // Yanıt metnini göstermek debug için faydalı
-          const txt = await res.text();
-          throw new Error(`HTTP ${res.status} • ${txt.slice(0,200)}`);
+        function addMessage(content, type) {
+            const div = document.createElement("div");
+            div.className = `message ${type}`;
+            div.textContent = content;
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
         }
-        const data = await res.json();
-        typing.content.innerHTML = marked.parse(data.answer || "Veri yok");
-      } catch (err) {
-        typing.content.innerHTML = marked.parse(`**Hata:** İstek başarısız.\n\nLütfen daha sonra tekrar deneyin.`);
-        console.error("ADVICE ERROR:", err);
-      } finally {
-        elQ.value = ""; autoRows(); elQ.focus();
-      }
-    }
 
-    document.getElementById("send").addEventListener("click", ask);
-    elQ.addEventListener("keydown", (e)=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); ask(); } });
-    elQ.focus();
-  </script>
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            errorMessage.classList.add("hidden");
+
+            const question = document.getElementById("question").value;
+            const risk = document.getElementById("risk").value;
+            const vade = document.getElementById("vade").value;
+            const sermaye = parseFloat(document.getElementById("sermaye").value);
+            const stop = parseFloat(document.getElementById("stop").value);
+            const fiyatlar = document.getElementById("fiyatlar").checked;
+
+            addMessage(`${question} (${vade}, ${risk} risk)`, "user");
+
+            try {
+                const res = await fetch(`${API_BASE}/advice`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        question,
+                        risk,
+                        vade,
+                        sermaye,
+                        stop,
+                        fiyatlar
+                    }),
+                });
+
+                if (!res.ok) throw new Error("API hatası");
+
+                const data = await res.json();
+                addMessage(data.advice || "Yanıt alınamadı", "bot");
+
+            } catch (err) {
+                errorMessage.textContent = "Hata: İstek başarısız.\nLütfen daha sonra tekrar deneyin.";
+                errorMessage.classList.remove("hidden");
+            }
+        });
+    </script>
 </body>
 </html>

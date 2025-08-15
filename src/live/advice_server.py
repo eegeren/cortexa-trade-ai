@@ -1,48 +1,53 @@
 # src/live/advice_server.py
-import os
-from fastapi.responses import FileResponse
-from starlette.staticfiles import StaticFiles
 from __future__ import annotations
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+
+import os
+import re
 from typing import Optional, List, Dict
 
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
+from starlette.staticfiles import StaticFiles
+
+# --- Guardrails / metin blokları ---
 from src.advice.guardrails import (
-    build_intro, options_section, sample_portfolios,
-    action_checklist, PROFILE_QUESTIONS, tailor_by_profile,
-    topic_compare, build_dca_risk_plan, build_brief_answer,
-    detect_leverage_intent, build_leverage_answer  # <-- EKLENDİ
+    build_intro,
+    options_section,
+    sample_portfolios,
+    action_checklist,
+    PROFILE_QUESTIONS,
+    tailor_by_profile,
+    topic_compare,
+    build_dca_risk_plan,
+    build_brief_answer,
+    detect_leverage_intent,
+    build_leverage_answer,
 )
 
-# Guardrails / metin blokları
-from src.advice.guardrails import (
-    build_intro, options_section, sample_portfolios,
-    action_checklist, PROFILE_QUESTIONS, tailor_by_profile,
-    topic_compare, build_dca_risk_plan, build_brief_answer
-)
-
-# Varlık sözlüğü ve basit tespit
+# --- Varlık sözlüğü ve basit tespit ---
 from src.advice.assets import (
-    detect_assets_in_text, default_stop_for,
+    detect_assets_in_text,
+    default_stop_for,
 )
 
-# Canlı fiyat beslemeleri
+# --- Canlı fiyat beslemeleri ---
 from src.advice.price_feeds import (
     map_assets_to_feed_codes,
     fetch_live_prices_cached,
     format_live_table,
 )
 
-# ✅ Kaldıraç modülü (yeni)
+# --- Kaldıraç modülü ---
 from src.advice.leverage import (
     parse_leverage_from_text,
-    LeverageInputs, build_leverage_plan, format_leverage_markdown
+    LeverageInputs,
+    build_leverage_plan,
+    format_leverage_markdown,
 )
 
 app = FastAPI(title="Cortexa Advice API")
-
-
 
 # -----------------------------
 # CORS Middleware
@@ -58,10 +63,6 @@ app.add_middleware(
 # -----------------------------
 # Sağlık
 # -----------------------------
-@app.get("/")
-def root():
-    return {"status": "ok", "service": "Cortexa Advice API"}
-
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -77,7 +78,8 @@ class AdviceQuery(BaseModel):
     capital: Optional[float] = None
     stop_pct: Optional[float] = None
     show_prices: Optional[bool] = True
-    suppress_disclaimer: Optional[bool] = False  # Terms onaylandıysa UI bunu true gönderiyor
+    # Terms onaylandıysa UI bunu true gönderiyor → disclaimerı bastır
+    suppress_disclaimer: Optional[bool] = False
 
 class PriceQuery(BaseModel):
     assets: List[str] = Field(..., example=["btc", "xau", "usd", "eur"])
@@ -105,7 +107,7 @@ class CompareQuery(BaseModel):
     capital: Optional[float] = None
     stop_pct: Optional[float] = None
 
-# ✅ Yeni: Kaldıraç planı endpoint’i
+# ✅ Kaldıraç planı endpoint’i için
 class LeverageQuery(BaseModel):
     user_query: str = Field(..., example="btc kaldıraç 5x, 100k sermaye, %2 stop")
     capital: float = Field(..., example=100000.0)
@@ -116,7 +118,7 @@ class LeverageQuery(BaseModel):
     use_live_price: bool = True
 
 # -----------------------------
-# Yardımcı: detected assets -> live snapshot
+# Yardımcılar
 # -----------------------------
 def _live_block_for_query_text(text: str) -> str:
     keys = detect_assets_in_text(text)
@@ -135,18 +137,62 @@ def _is_gibberish_or_unknown(q: str) -> bool:
     assets = detect_assets_in_text(q)
     if assets:
         return False
-    keywords = ["altın","xau","gümüş","xag","petrol","wti","hisse","endeks","sp500","nasdaq",
-                "btc","bitcoin","eth","ethereum","sol","solana","kripto","dolar","usd","euro",
-                "eur","tahvil","bono","faiz","döviz","usdtry","eurtry","kaldıraç","leverage","x"]
+    keywords = [
+        "altın","xau","gümüş","xag","petrol","wti","hisse","endeks","sp500","nasdaq",
+        "btc","bitcoin","eth","ethereum","sol","solana","kripto","dolar","usd","euro",
+        "eur","tahvil","bono","faiz","döviz","usdtry","eurtry","kaldıraç","leverage","x"
+    ]
     ql = q.lower()
     return not any(k in ql for k in keywords)
+
+_NUM_RE = re.compile(r"(\d+(?:[\.,]\d+)?)")
+def _parse_inline_params(text: str) -> dict:
+    """
+    Metinden 'risk', 'capital' (k/m), 'stop_pct (%x veya 0.x)' çıkarır.
+    """
+    out = {"risk": "", "capital": None, "stop_pct": None}
+    if not text:
+        return out
+    t = text.lower()
+
+    # risk
+    if "düşük" in t or "dusuk" in t or "low" in t:
+        out["risk"] = "dusuk"
+    elif "yüksek" in t or "yuksek" in t or "high" in t:
+        out["risk"] = "yuksek"
+    elif "orta" in t or "medium" in t:
+        out["risk"] = "orta"
+
+    # capital (…k / …m destekli)
+    cap = None
+    m = re.search(r"(\d+(?:[\.,]\d+)?)(\s*[kKmM])", t)
+    if m:
+        val = float(m.group(1).replace(",", "."))
+        suf = m.group(2).strip().lower()
+        cap = val * (1_000 if suf == "k" else 1_000_000)
+    else:
+        m2 = re.search(r"\b(\d{5,})\b", t)  # 5+ hane düz sayı
+        if m2:
+            cap = float(m2.group(1))
+    out["capital"] = cap
+
+    # stop: “%1.5” ya da “0.015”
+    ms = re.search(r"%\s*(\d+(?:[\.,]\d+)?)", t)
+    if ms:
+        out["stop_pct"] = float(ms.group(1).replace(",", ".")) / 100.0
+    else:
+        ms2 = re.search(r"\b0[\.,]\d+\b", t)
+        if ms2:
+            out["stop_pct"] = float(ms2.group(0).replace(",", "."))
+
+    return out
 
 # -----------------------------
 # /advice
 # -----------------------------
 @app.post("/advice")
 def advice(q: AdviceQuery) -> Dict[str, str]:
-    # 1) Geçersiz / alakasız giriş reddi (mevcut)
+    # 1) Geçersiz / alakasız giriş reddi
     if _is_gibberish_or_unknown(q.user_query):
         guide = (
             "**Geçersiz/eksik istek** — şu formatta deneyebilirsin:\n"
@@ -155,13 +201,11 @@ def advice(q: AdviceQuery) -> Dict[str, str]:
         )
         return {"answer": guide}
 
-    # >>> YENİ: KALDIRAÇLI NİYET KISA CEVAP MODU
+    # 2) Kaldıraçlı niyet → kısa, odaklı cevap modu
     if detect_leverage_intent(q.user_query):
-        # Varlık tespiti (yoksa BTC)
         keys = detect_assets_in_text(q.user_query) or []
         asset_key = keys[0] if keys else "btc"
 
-        # Parametreleri birleştir (öncelik payload)
         inline = _parse_inline_params(q.user_query)
         risk = q.risk or inline["risk"] or "orta"
         capital = q.capital if q.capital is not None else inline["capital"] or 0.0
@@ -169,7 +213,6 @@ def advice(q: AdviceQuery) -> Dict[str, str]:
         if stop_pct is None:
             stop_pct = max(default_stop_for(asset_key) / 2, 0.005)  # kaldıraçta biraz daralt
 
-        # Canlı fiyat (adet hesaplamak için opsiyonel)
         entry_price = None
         try:
             items = map_assets_to_feed_codes([asset_key])
@@ -178,10 +221,7 @@ def advice(q: AdviceQuery) -> Dict[str, str]:
         except Exception:
             pass
 
-        # Üst başlık: kullanıcı koşulları onayladıysa disclaimer yok
         header = f"**Soru:** {q.user_query}\n\n" if q.suppress_disclaimer else build_intro(q.user_query)
-
-        # Odaklı kısa yanıt
         short = build_leverage_answer(
             asset_key=asset_key,
             risk=risk,
@@ -189,19 +229,12 @@ def advice(q: AdviceQuery) -> Dict[str, str]:
             stop_pct=stop_pct,
             entry_price=entry_price,
         )
-
-        # İsteğe bağlı: tek satırlık canlı fiyat özeti
         live_tbl = _live_block_for_query_text(asset_key) if q.show_prices else ""
         answer = header + short + (("\n" + live_tbl) if live_tbl else "")
         return {"answer": answer}
-    # <<< YENİ: KALDIRAÇLI MOD BİTİŞI
 
-    # 2) (MEVCUT) Klasik akış – kaldıraç yoksa eski format
-    if q.suppress_disclaimer:
-        intro = f"**Soru:** {q.user_query}\n\n"
-    else:
-        intro = build_intro(q.user_query)
-
+    # 3) Klasik akış
+    intro = f"**Soru:** {q.user_query}\n\n" if q.suppress_disclaimer else build_intro(q.user_query)
     brief = build_brief_answer(q.user_query, q.horizon, q.risk, q.capital, q.stop_pct)
     opts = options_section()
     topic = topic_compare(q.user_query)
@@ -316,78 +349,36 @@ def compare_assets(p: CompareQuery) -> Dict[str, str]:
 # -----------------------------
 @app.post("/leverage")
 def leverage_endpoint(p: LeverageQuery) -> Dict[str, str]:
-    # 1) varlık tespiti
     keys = detect_assets_in_text(p.user_query) or []
     asset_key = keys[0] if keys else "btc"
 
-    # 2) stop & kaldıraç
     stop_pct = p.stop_pct if p.stop_pct is not None else default_stop_for(asset_key)
     lev = p.leverage if p.leverage else parse_leverage_from_text(p.user_query)
 
-    # 3) canlı fiyat (isteğe bağlı)
     entry_price = None
     if p.use_live_price:
         items = map_assets_to_feed_codes([asset_key])
         snap = fetch_live_prices_cached(items, ttl=15) if items else {}
         entry_price = (snap.get(asset_key, {}) or {}).get("price")
 
-    # 4) plan
-    plan = build_leverage_plan(LeverageInputs(
-        asset_key=asset_key,
-        capital=p.capital,
-        risk_per_trade=p.risk_per_trade,
-        stop_pct=stop_pct,
-        leverage=lev,
-        entry_price=entry_price,
-        maintenance_margin=p.maintenance_margin,
-    ))
+    plan = build_leverage_plan(
+        LeverageInputs(
+            asset_key=asset_key,
+            capital=p.capital,
+            risk_per_trade=p.risk_per_trade,
+            stop_pct=stop_pct,
+            leverage=lev,
+            entry_price=entry_price,
+            maintenance_margin=p.maintenance_margin,
+        )
+    )
 
-    # 5) çıktı (markdown)
     text = format_leverage_markdown(asset_key, entry_price, plan, lev)
     return {"text": text}
 
-import re
-
-_NUM_RE = re.compile(r"(\d+(?:[\.,]\d+)?)")
-def _parse_inline_params(text: str) -> dict:
-    """
-    Metinden 'risk', 'capital' (k/m), 'stop_pct (%x veya 0.x)' çıkarır.
-    """
-    out = {"risk":"", "capital":None, "stop_pct":None}
-    if not text:
-        return out
-    t = text.lower()
-
-    # risk
-    if "düşük" in t or "dusuk" in t or "low" in t: out["risk"]="dusuk"
-    elif "yüksek" in t or "yuksek" in t or "high" in t: out["risk"]="yuksek"
-    elif "orta" in t or "medium" in t: out["risk"]="orta"
-
-    # capital (…k / …m destekli)
-    cap = None
-    m = re.search(r"(\d+(?:[\.,]\d+)?)(\s*[kKmM])", t)
-    if m:
-        val = float(m.group(1).replace(",", "."))
-        suf = m.group(2).strip().lower()
-        cap = val * (1_000 if suf=="k" else 1_000_000)
-    else:
-        m2 = re.search(r"\b(\d{5,})\b", t)  # 5+ hane düz sayı
-        if m2:
-            cap = float(m2.group(1))
-    out["capital"] = cap
-
-    # stop: “%1.5” ya da “0.015”
-    ms = re.search(r"%\s*(\d+(?:[\.,]\d+)?)", t)
-    if ms:
-        out["stop_pct"] = float(ms.group(1).replace(",", ".")) / 100.0
-    else:
-        ms2 = re.search(r"\b0[\.,]\d+\b", t)
-        if ms2:
-            out["stop_pct"] = float(ms2.group(0).replace(",", "."))
-
-    return out
-
-# Frontend dosyalarının yeri
+# -----------------------------
+# Frontend: index.html servis ve SPA fallback
+# -----------------------------
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "web")
 INDEX_FILE = os.path.join(WEB_DIR, "index.html")
 
@@ -407,12 +398,9 @@ def serve_index_root():
 @app.get("/{full_path:path}", include_in_schema=False)
 def spa_fallback(full_path: str):
     # API yolları için fallback devreye girmesin
-    api_prefixes = ("advice", "prices", "plan", "compare", "health")
+    api_prefixes = ("advice", "prices", "plan", "compare", "health", "leverage", "docs", "openapi.json")
     if full_path.startswith(api_prefixes):
-        # 404 bırakırsak FastAPI mevcut API rotalarıyla eşleştirmeye devam eder
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Not Found")
     if os.path.isfile(INDEX_FILE):
         return FileResponse(INDEX_FILE, media_type="text/html; charset=utf-8")
-    from fastapi import HTTPException
     raise HTTPException(status_code=404, detail="index.html not found")

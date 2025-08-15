@@ -1,4 +1,7 @@
 # src/live/advice_server.py
+import os
+from fastapi.responses import FileResponse
+from starlette.staticfiles import StaticFiles
 from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,6 +41,8 @@ from src.advice.leverage import (
 )
 
 app = FastAPI(title="Cortexa Advice API")
+
+
 
 # -----------------------------
 # CORS Middleware
@@ -382,19 +387,32 @@ def _parse_inline_params(text: str) -> dict:
 
     return out
 
-# --- Statik site (index.html) servis ---
-from pathlib import Path
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+# Frontend dosyalarının yeri
+WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "web")
+INDEX_FILE = os.path.join(WEB_DIR, "index.html")
 
-WEB_DIR = Path(__file__).resolve().parents[2] / "web"   # proje-kök/web
+# /assets gibi statik klasörlerin varsa mount et (opsiyonel)
+assets_dir = os.path.join(WEB_DIR, "assets")
+if os.path.isdir(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-# /advice, /prices vb. API rotaları zaten tanımlı.
-# Aşağıdaki mount, onlara ÇARPMADAN kalan tüm yolları statik dosyalara yönlendirir.
-if WEB_DIR.exists():
-    app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="site")
+# Root: index.html döndür
+@app.get("/", include_in_schema=False)
+def serve_index_root():
+    if os.path.isfile(INDEX_FILE):
+        return FileResponse(INDEX_FILE, media_type="text/html; charset=utf-8")
+    return {"ok": True, "service": "Cortexa Advice API"}  # index yoksa eski davranış
 
-    # Kök path'e gelen isteklerde index.html döndür (opsiyonel, ama faydalı)
-    @app.get("/")
-    def serve_index():
-        return FileResponse(WEB_DIR / "index.html")
+# SPA fallback: API’ye uymayan tüm yolları index.html’e düşür
+@app.get("/{full_path:path}", include_in_schema=False)
+def spa_fallback(full_path: str):
+    # API yolları için fallback devreye girmesin
+    api_prefixes = ("advice", "prices", "plan", "compare", "health")
+    if full_path.startswith(api_prefixes):
+        # 404 bırakırsak FastAPI mevcut API rotalarıyla eşleştirmeye devam eder
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Not Found")
+    if os.path.isfile(INDEX_FILE):
+        return FileResponse(INDEX_FILE, media_type="text/html; charset=utf-8")
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail="index.html not found")

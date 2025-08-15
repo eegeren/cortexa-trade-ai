@@ -2,125 +2,68 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8" />
-  <title>Cortexa Chat Test • v2.2</title>
+  <title>Cortexa Advisor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Opsiyonel: API tabanını elle vermek için uncomment edin -->
+  <!-- <meta name="api-base" content="https://api.cortexaai.net"> -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     :root{
       --bg:#f6f7fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
-      --accent:#2563eb; --accent-2:#22c55e; --danger:#ef4444; --mono:#111827;
+      --accent:#2563eb; --accent-2:#22c55e; --danger:#ef4444;
       --bubble-user:#e8f0ff; --bubble-ai:#fff; --shadow:0 10px 30px rgba(2,6,23,.08);
-      --radius:16px; --chip:#eef2ff; --chip-ink:#1e293b; --badge:#f1f5f9;
-      --ctrl-bg:#f8fafc; --ctrl-brd:rgba(100,116,139,.22);
+      --chip:#eef2ff; --chip-ink:#1e293b; --badge:#f1f5f9;
     }
     [data-theme="dark"]{
       --bg:#0b1220; --card:#0f172a; --ink:#e5e7eb; --muted:#94a3b8;
-      --accent:#3b82f6; --accent-2:#22c55e; --danger:#ef4444; --mono:#e5e7eb;
-      --bubble-user:#102139; --bubble-ai:#0c1426; --chip:#0b1a33; --chip-ink:#cbd5e1; --badge:#0b1a33;
+      --accent:#3b82f6; --bubble-user:#0f274e; --bubble-ai:#0c1426;
+      --chip:#0b1a33; --chip-ink:#cbd5e1; --badge:#0b1a33;
       --shadow:0 10px 30px rgba(0,0,0,.35);
-      --ctrl-bg:#0d1a2f; --ctrl-brd:rgba(148,163,184,.18);
     }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; font:16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue";
-      color:var(--ink); background:linear-gradient(180deg,rgba(59,130,246,.06) 0%, var(--bg) 150px);
-    }
-    .topbar{
-      position:sticky; top:0; z-index:10; backdrop-filter:saturate(1.2) blur(6px);
-      background:linear-gradient(180deg,rgba(255,255,255,.7),rgba(255,255,255,0));
-      border-bottom:1px solid rgba(100,116,139,.15);
-    }
-    [data-theme="dark"] .topbar{ background:linear-gradient(180deg,rgba(2,6,23,.55),rgba(2,6,23,0)); border-color:rgba(148,163,184,.15); }
-    .bar-wrap{max-width:1000px; margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:12px; }
-    .logo{display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.2px;}
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0; font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+      color:var(--ink); background:linear-gradient(180deg,rgba(59,130,246,.06) 0%, var(--bg) 140px);}
+    .topbar{position:sticky; top:0; z-index:10; backdrop-filter:saturate(1.2) blur(6px);
+      background:linear-gradient(180deg,rgba(255,255,255,.60),rgba(255,255,255,0)); border-bottom:1px solid rgba(100,116,139,.15);}
+    [data-theme="dark"] .topbar{ background:linear-gradient(180deg,rgba(2,6,23,.55),rgba(2,6,23,0)); }
+    .bar-wrap{max-width:1000px; margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:12px;}
+    .logo{display:flex; align-items:center; gap:10px; font-weight:800}
     .logo-badge{width:34px; height:34px; border-radius:10px; background:#111827; color:#fff; display:grid; place-items:center; font-weight:900}
     [data-theme="dark"] .logo-badge{background:#0b1220; border:1px solid #1f2937}
     .spacer{flex:1}
     .icon-btn{height:38px; padding:0 12px; border-radius:10px; border:1px solid rgba(100,116,139,.25); background:transparent; color:var(--ink); cursor:pointer}
-    .icon-btn:active{transform:translateY(1px)}
-    .wrap{max-width:1000px; margin:24px auto; padding:0 16px}
-    .board{
-      margin-top:8px; background:var(--card); border-radius:20px; box-shadow:var(--shadow);
-      padding:18px; height:60vh; overflow:auto; scroll-behavior:smooth;
-    }
+    .wrap{max-width:1000px; margin:20px auto; padding:0 16px}
+    .board{background:var(--card); border-radius:20px; box-shadow:var(--shadow); padding:18px; height:60vh; overflow:auto; scroll-behavior:smooth;}
     .row{display:flex; gap:12px; margin:12px 0}
     .row.user{justify-content:flex-end}
-    .bubble{
-      max-width:min(76%, 720px); padding:14px 16px; border-radius:14px;
-      background:var(--bubble-ai); box-shadow:0 2px 10px rgba(2,6,23,.05);
-      border:1px solid rgba(100,116,139,.2);
-    }
+    .bubble{max-width:min(76%, 720px); padding:14px 16px; border-radius:14px; background:var(--bubble-ai); border:1px solid rgba(100,116,139,.2);}
     .row.user .bubble{background:var(--bubble-user); border-color:rgba(59,130,246,.35)}
-    .head{display:flex; align-items:center; gap:10px; margin-bottom:8px}
-    .head .brand{font-weight:800}
+    .head{display:flex; align-items:center; gap:10px; margin-bottom:6px}
     .copy{margin-left:auto; background:transparent; border:1px solid rgba(100,116,139,.25); color:var(--ink); padding:6px 10px; border-radius:10px; cursor:pointer; font-size:13px}
-    .md :is(h1,h2,h3){margin:.6em 0 .35em}
-    .md h2{font-size:18px}
-    .md h3{font-size:16px}
-    .md p{margin:.45em 0}
-    .md strong{font-weight:700}
+    .md :is(h1,h2,h3){margin:.6em 0 .35em} .md h2{font-size:18px} .md h3{font-size:16px}
+    .md p{margin:.45em 0} .md strong{font-weight:700}
     .md table{border-collapse:collapse; width:100%; margin:.6em 0; border:1px solid rgba(100,116,139,.25); border-radius:10px; overflow:hidden}
     .md th,.md td{border-bottom:1px solid rgba(100,116,139,.25); padding:10px 12px; text-align:left}
-    .md thead th{background:var(--badge); font-weight:800}
     .chips{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0}
     .chip{padding:6px 10px; border-radius:999px; background:var(--chip); color:var(--chip-ink); border:1px solid rgba(100,116,139,.25); cursor:pointer; font-size:13px}
-    .controlbar{
-      display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;
-      background:var(--ctrl-bg); border:1px solid var(--ctrl-brd);
-      padding:12px; border-radius:14px; margin-top:12px;
-    }
+    .controlbar{display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; background:rgba(148,163,184,.12);
+      border:1px solid rgba(100,116,139,.22); padding:12px; border-radius:14px; margin-top:12px;}
     .ctrl{display:flex; flex-direction:column; gap:6px; min-width:140px}
     .ctrl.small{min-width:110px}
     .ctrl .lbl{font-size:12px; color:var(--muted); font-weight:600; letter-spacing:.2px}
-    .ctrl input, .ctrl select, .ctrl textarea{
-      height:40px; border:1px solid var(--ctrl-brd); border-radius:10px; padding:0 10px; background:transparent; color:var(--ink); outline:none;
-    }
+    .ctrl input, .ctrl select, .ctrl textarea{height:40px; border:1px solid rgba(100,116,139,.22); border-radius:10px; padding:0 10px; background:transparent; color:var(--ink); outline:none;}
     .ctrl textarea{height:auto; min-height:40px; padding:8px 10px; resize:vertical}
-    .ctrl input:focus, .ctrl select:focus, .ctrl textarea:focus{
-      border-color:#93c5fd; box-shadow:0 0 0 3px rgba(59,130,246,.15)
-    }
-    .ctrl .switch{
-      height:40px; display:flex; align-items:center; gap:8px; padding:0 10px;
-      border:1px solid var(--ctrl-brd); border-radius:10px; color:var(--muted);
-    }
-    .ctrl .switch input{margin:0}
-    .send-wrap{margin-left:auto; display:flex; align-items:end}
-    .btn{height:44px; padding:0 18px; border-radius:12px; border:0; color:#fff; background:var(--accent);
-      font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(37,99,235,.25);}
+    .ctrl input:focus, .ctrl select:focus, .ctrl textarea:focus{border-color:#93c5fd; box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+    .btn{height:44px; padding:0 18px; border-radius:12px; border:0; color:#fff; background:var(--accent); font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(37,99,235,.25);}
     .btn:disabled{opacity:.6; cursor:not-allowed; box-shadow:none}
-    .filters{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px}
-    .filters .pill{background:var(--badge); padding:6px 10px; border-radius:999px; font-size:12px; border:1px solid rgba(100,116,139,.25)}
-    .hint{font-size:12px; color:var(--muted); margin-top:8px}
-    .settings{margin-top:8px; font-size:12px; color:var(--muted)}
-    .settings input{height:36px}
-    .modal { position:fixed; inset:0; display:none; place-items:center; background:rgba(15,23,42,.55); z-index:50; }
-    .modal.show { display:grid; }
-    .modal-card{
-      width:min(560px, 92%); background:var(--card); border-radius:16px; box-shadow:0 20px 60px rgba(2,6,23,.35);
-      padding:22px; border:1px solid rgba(100,116,139,.25);
-    }
-    .modal-card h3{margin:0 0 8px; font-size:18px}
-    .modal-card p{color:var(--muted); margin:6px 0}
-    .modal-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:14px}
-    .btn-ghost{height:42px; padding:0 14px; border-radius:12px; border:1px solid rgba(100,116,139,.25); background:transparent; color:var(--ink); cursor:pointer}
-    .typing{position:relative; overflow:hidden}
-    .typing:after{content:""; position:absolute; inset:0; background:linear-gradient(90deg, transparent, rgba(148,163,184,.15), transparent); animation:sh 1.2s infinite}
-    @keyframes sh{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
-    .toast{position:fixed; right:16px; bottom:16px; background:var(--card); color:var(--ink); border:1px solid rgba(100,116,139,.25); padding:10px 14px; border-radius:10px; box-shadow:var(--shadow); opacity:0; transform:translateY(10px); transition:.2s; z-index:60}
-    .toast.show{opacity:1; transform:translateY(0)}
-    @media (max-width:720px){
-      .ctrl{min-width:120px}
-      .ctrl.small{min-width:100px}
-      .send-wrap{width:100%}
-      .btn{width:100%}
-    }
+    .typing{opacity:.7}
+    @media (max-width:720px){ .ctrl{min-width:120px} .ctrl.small{min-width:100px} .btn{width:100%} }
   </style>
 </head>
 <body>
   <div class="topbar">
     <div class="bar-wrap">
-      <div class="logo"><div class="logo-badge">CX</div> Cortexa Chat Test</div>
+      <div class="logo"><div class="logo-badge">CX</div> Cortexa Advisor</div>
       <div class="spacer"></div>
       <button class="icon-btn" id="themeBtn">🌗 Tema</button>
     </div>
@@ -133,188 +76,91 @@
       <div class="chip" data-q="btc vs euro (6 ay, orta risk, 100k, %2 stop)">btc vs euro (ör.)</div>
       <div class="chip" data-q="altın almalı mıyım? (12 ay, düşük risk)">altın almalı mıyım?</div>
       <div class="chip" data-q="Apple mı Tesla mı? (orta risk, 6 ay, 50k)">Apple vs Tesla</div>
-      <div class="chip" data-q="portföyümü nasıl dağıtmalıyım? (uzun vade, orta risk)">portföy dağılımı</div>
+      <div class="chip" data-q="btc kaldıraçlı öner (orta risk, 50k, %1.5 stop)">btc kaldıraçlı öner</div>
     </div>
-
-    <div class="filters" id="filterChips" style="display:none;"></div>
 
     <div class="controlbar">
       <div class="ctrl" style="flex:1 1 280px">
         <div class="lbl">Soru</div>
         <textarea id="q" rows="1" placeholder="Örn: btc vs euro (6 ay, orta risk, 100k, %2 stop)"></textarea>
       </div>
-
       <div class="ctrl small">
         <div class="lbl">Risk</div>
-        <select id="risk">
-          <option value="">Seç</option>
-          <option>dusuk</option><option>orta</option><option>yuksek</option>
-        </select>
+        <select id="risk"><option value="">Seç</option><option>dusuk</option><option>orta</option><option>yuksek</option></select>
       </div>
-
       <div class="ctrl small">
         <div class="lbl">Vade</div>
         <input id="horizon" type="text" placeholder="örn. 6 ay" />
       </div>
-
       <div class="ctrl small">
         <div class="lbl">Sermaye</div>
         <input id="capital" type="number" placeholder="örn. 100000" />
       </div>
-
       <div class="ctrl small">
         <div class="lbl">Stop</div>
         <input id="stop" type="number" step="0.001" placeholder="0.02" />
       </div>
-
       <div class="ctrl small">
         <div class="lbl">Fiyatlar</div>
-        <label class="switch"><input id="prices" type="checkbox" checked /> Ekle</label>
+        <label style="height:40px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid rgba(100,116,139,.22);border-radius:10px;color:var(--muted);">
+          <input id="prices" type="checkbox" checked /> Ekle
+        </label>
       </div>
-
-      <div class="send-wrap">
-        <button id="send" class="btn">Gönder</button>
-      </div>
-    </div>
-
-    <div class="settings">
-      API: <input id="api" type="text" style="width:280px" />
-      <button id="saveApi" class="icon-btn">Kaydet</button>
-      <span class="hint">CORS açık olmalı.</span>
+      <button id="send" class="btn">Gönder</button>
     </div>
   </div>
-
-  <!-- Koşullar Modal (metin sadeleştirildi; YTD ifadesi yok) -->
-  <div id="termsModal" class="modal">
-    <div class="modal-card">
-      <h3>Koşullar & Bilgilendirme</h3>
-      <p>Bu platformun yanıtları eğitim ve genel bilgilendirme amaçlıdır. İşlemlerinize karar verirken kendi koşullarınızı değerlendirmeniz beklenir.</p>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:10px">
-        <input type="checkbox" id="termsChk" />
-        <span>Kullanım Koşulları’nı okudum ve kabul ediyorum.</span>
-      </label>
-      <div class="modal-actions">
-        <button id="termsCancel" class="btn-ghost">Vazgeç</button>
-        <button id="termsAccept" class="btn">Devam et</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="toast" class="toast"></div>
 
   <script>
-    /* ====== STATE & UTIL ====== */
-    const DEFAULT_API = "http://localhost:8081/advice";
-    const API_KEY = "cx_api";
-    const TERMS_KEY = "cx_terms_ok";
+    // ====== API tabanı (otomatik) ======
+    const META_API = document.querySelector('meta[name="api-base"]')?.content?.trim() || "";
+    const AUTO_API = (location.hostname.endsWith("cortexaai.net") ? "https://api.cortexaai.net" : "");
+    const API_BASE = META_API || AUTO_API || ""; // "" => aynı origin
+
+    // ====== Tema ======
     const THEME_KEY = "cx_theme";
-
-    const elBoard  = document.getElementById("board");
-    const elQ      = document.getElementById("q");
-    const elSend   = document.getElementById("send");
-    const elRisk   = document.getElementById("risk");
-    const elHorizon= document.getElementById("horizon");
-    const elCap    = document.getElementById("capital");
-    const elStop   = document.getElementById("stop");
-    const elPrices = document.getElementById("prices");
-    const elApi    = document.getElementById("api");
-    const elSaveApi= document.getElementById("saveApi");
-    const examples = document.getElementById("examples");
-    const filterChips = document.getElementById("filterChips");
-    const toast   = document.getElementById("toast");
-
-    /* Tema */
     const themeBtn = document.getElementById("themeBtn");
     const setTheme = (t)=>{ document.documentElement.setAttribute("data-theme", t); localStorage.setItem(THEME_KEY, t); };
     setTheme(localStorage.getItem(THEME_KEY) || "light");
     themeBtn.onclick = ()=> setTheme(document.documentElement.getAttribute("data-theme")==="light"?"dark":"light");
 
-    /* API config */
-    elApi.value = localStorage.getItem(API_KEY) || DEFAULT_API;
-    elSaveApi.onclick = ()=>{ localStorage.setItem(API_KEY, elApi.value.trim() || DEFAULT_API); ping("API kaydedildi"); };
-    function API(){ return localStorage.getItem(API_KEY) || DEFAULT_API; }
+    // ====== Elemanlar ======
+    const elBoard = document.getElementById("board");
+    const elQ = document.getElementById("q");
+    const elRisk = document.getElementById("risk");
+    const elHorizon = document.getElementById("horizon");
+    const elCap = document.getElementById("capital");
+    const elStop = document.getElementById("stop");
+    const elPrices = document.getElementById("prices");
 
-    /* Toast */
-    function ping(msg){ toast.textContent = msg; toast.classList.add("show"); setTimeout(()=>toast.classList.remove("show"),1500); }
-
-    /* Koşullar */
-    const modal   = document.getElementById("termsModal");
-    const chk     = document.getElementById("termsChk");
-    const btnOk   = document.getElementById("termsAccept");
-    const btnNo   = document.getElementById("termsCancel");
-    function lockUI(lock){
-      [elQ, elSend, elRisk, elHorizon, elCap, elStop, elPrices].forEach(x=> x.disabled = lock);
-    }
-    function openTerms(){ modal.classList.add("show"); lockUI(true); }
-    function closeTerms(){ modal.classList.remove("show"); lockUI(false); elQ.focus(); }
-    btnOk.onclick = () => {
-      if(!chk.checked) { ping("Lütfen koşulları onaylayın"); return; }
-      localStorage.setItem(TERMS_KEY, "1"); closeTerms();
-    };
-    btnNo.onclick = () => { window.location.href = "about:blank"; };
-    if(localStorage.getItem(TERMS_KEY) !== "1"){ openTerms(); } else { closeTerms(); }
-
-    /* Örnek chip’ler */
-    examples.addEventListener("click", (e)=>{
+    // Örnek chipler
+    document.getElementById("examples").addEventListener("click", (e)=>{
       const chip = e.target.closest(".chip"); if(!chip) return;
       elQ.value = chip.dataset.q || ""; autoRows(); elQ.focus();
     });
 
-    /* Filtre özet chip’leri */
-    function refreshFilterChips(){
-      const parts = [];
-      if (elHorizon.value) parts.push(["Vade", elHorizon.value]);
-      if (elRisk.value)    parts.push(["Risk", elRisk.value]);
-      if (elCap.value)     parts.push(["Sermaye", Number(elCap.value).toLocaleString("tr-TR")]);
-      if (elStop.value)    parts.push(["Stop", elStop.value]);
-      filterChips.innerHTML = parts.map(p=>`<div class="pill"><strong>${p[0]}:</strong> ${p[1]}</div>`).join("");
-      filterChips.style.display = parts.length ? "flex" : "none";
-    }
-    ["input","change"].forEach(ev=>{
-      [elHorizon, elRisk, elCap, elStop].forEach(el=> el.addEventListener(ev, refreshFilterChips));
-    });
-
-    /* Autosize textarea */
-    function autoRows(){
-      elQ.style.height = "auto";
-      elQ.style.height = Math.min(elQ.scrollHeight, 180) + "px";
-    }
+    // Autosize
+    function autoRows(){ elQ.style.height="auto"; elQ.style.height=Math.min(elQ.scrollHeight,180)+"px"; }
     elQ.addEventListener("input", autoRows); autoRows();
 
-    /* Chat bubbles */
+    // Baloncuk
     function addBubble({role, html, raw, typing}) {
       const row = document.createElement("div");
       row.className = "row " + (role === "user" ? "user" : "ai");
-
       const bubble = document.createElement("div");
       bubble.className = "bubble" + (typing ? " typing" : "");
-
       const head = document.createElement("div");
       head.className = "head";
-      const brand = document.createElement("div");
-      brand.className = "brand";
-      brand.textContent = role === "user" ? "" : "";
-      head.appendChild(brand);
-
       if (role !== "user" && !typing) {
         const btn = document.createElement("button");
-        btn.className = "copy";
-        btn.textContent = "Kopyala";
-        btn.onclick = () => { navigator.clipboard.writeText(raw || bubble.innerText); ping("Kopyalandı ✓"); };
+        btn.className = "copy"; btn.textContent = "Kopyala";
+        btn.onclick = () => { navigator.clipboard.writeText(raw || bubble.innerText); btn.textContent="Kopyalandı ✓"; setTimeout(()=>btn.textContent="Kopyala",1200); };
         head.appendChild(btn);
       }
-
       bubble.appendChild(head);
-
-      const content = document.createElement("div");
-      content.className = "md";
-      content.innerHTML = marked.parse(html ?? (typing ? " " : ""));
+      const content = document.createElement("div"); content.className="md";
+      content.innerHTML = marked.parse(html ?? (typing ? "_yazıyor…_" : ""));
       bubble.appendChild(content);
-
-      row.appendChild(bubble);
-      elBoard.appendChild(row);
-      elBoard.scrollTop = elBoard.scrollHeight;
-
+      row.appendChild(bubble); elBoard.appendChild(row); elBoard.scrollTop = elBoard.scrollHeight;
       return { row, bubble, content };
     }
 
@@ -327,32 +173,8 @@
       return parts.length ? " — " + parts.join(" | ") : "";
     }
 
-    /* --- UYARI METNİNİ TEMİZLEME --- */
-    function stripDisclaimer(mdText){
-      if(!mdText) return mdText;
-      // Başta yer alan uyarı bloklarını ve "genel bilgilendirme" cümlelerini temizle
-      const lines = mdText.split(/\r?\n/);
-      const filtered = [];
-      let skipping = true;
-      for (let i=0;i<lines.length;i++){
-        const L = lines[i].trim();
-        const isWarn = /^⚠️/.test(L)
-          || /genel bilgilendirme amaçlıdır/i.test(L)
-          || /yatırım tavsiyesi değildir/i.test(L);
-        if (skipping && (L==="" || isWarn)) {
-          continue; // üstteki uyarı satırlarını atla
-        } else {
-          skipping = false;
-          filtered.push(lines[i]);
-        }
-      }
-      return filtered.join("\n").replace(/\n{3,}/g, "\n\n"); // fazla boşlukları düzelt
-    }
-
     async function ask() {
-      const user_query = elQ.value.trim();
-      if (!user_query) return;
-
+      const user_query = elQ.value.trim(); if (!user_query) return;
       const payload = {
         user_query,
         horizon: elHorizon.value.trim(),
@@ -360,50 +182,30 @@
         capital: elCap.value ? Number(elCap.value) : null,
         stop_pct: elStop.value ? Number(elStop.value) : null,
         show_prices: elPrices.checked,
-        suppress_disclaimer: (localStorage.getItem(TERMS_KEY) === "1")
+        suppress_disclaimer: true
       };
-
-      addBubble({ role:"user", html: user_query + (userTextPreview(payload) ? "\n\n" + userTextPreview(payload) : "") });
-
-      elSend.disabled = true;
+      addBubble({ role:"user", html: marked.parseInline(user_query + userTextPreview(payload)) });
       const typing = addBubble({ role:"ai", html: "_yazıyor…_", typing: true });
 
       try {
-        const res = await fetch(API(), {
-          method:"POST",
-          headers: {"Content-Type":"application/json"},
+        const res = await fetch(API_BASE + "/advice", {
+          method:"POST", headers: {"Content-Type":"application/json"},
           body: JSON.stringify(payload),
         });
-
         typing.bubble.classList.remove("typing");
-
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || `HTTP ${res.status}`);
-        }
-
+        if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
         const data = await res.json();
-        let answer = data.answer || "Veri yok";
-        answer = stripDisclaimer(answer);              // <-- UYARIYI GİZLE
-        typing.content.innerHTML = marked.parse(answer);
-
+        typing.content.innerHTML = marked.parse(data.answer || "Veri yok");
       } catch (err) {
-        typing.content.innerHTML = marked.parse(`**Hata:** ${String(err.message || err)}\n\nSunucu çalışıyor mu? \`/health\` → **ok:true**`);
+        typing.content.innerHTML = marked.parse(`**Hata:** İstek başarısız.\n\nLütfen daha sonra tekrar deneyin.`);
       } finally {
-        elSend.disabled = false;
-        elQ.value = "";
-        autoRows();
-        refreshFilterChips();
-        elQ.focus();
+        elQ.value = ""; autoRows(); elQ.focus();
       }
     }
 
     document.getElementById("send").addEventListener("click", ask);
     elQ.addEventListener("keydown", (e)=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); ask(); } });
-
-    // İlk odak
     elQ.focus();
-    refreshFilterChips();
   </script>
 </body>
 </html>

@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <title>Cortexa Advisor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Opsiyonel: API tabanını elle vermek için uncomment edin -->
-   <meta name="api-base" content="https://api.cortexaai.net">
+  <!-- İstersen API tabanını burada override et: -->
+  <!-- <meta name="api-base" content="https://o5zr614i.up.railway.app"> -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     :root{
@@ -111,10 +111,15 @@
   </div>
 
   <script>
-    // ====== API tabanı (otomatik) ======
-    const META_API = document.querySelector('meta[name="api-base"]')?.content?.trim() || "";
-    const AUTO_API = (location.hostname.endsWith("cortexaai.net") ? "https://api.cortexaai.net" : "");
-    const API_BASE = META_API || AUTO_API || ""; // "" => aynı origin
+    // ====== API tabanı (otonom + override) ======
+    (function () {
+      const meta = document.querySelector('meta[name="api-base"]');
+      const fromMeta = (meta && meta.content || "").trim().replace(/\/+$/, "");
+      const isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+      // Lokal geliştirmede 8081'e, prod'da aynı origin'e istek at.
+      window.API_BASE = fromMeta || (isLocal ? "http://localhost:8081" : "");
+      window.apiUrl = (p) => (window.API_BASE ? window.API_BASE + p : p);
+    })();
 
     // ====== Tema ======
     const THEME_KEY = "cx_theme";
@@ -188,16 +193,21 @@
       const typing = addBubble({ role:"ai", html: "_yazıyor…_", typing: true });
 
       try {
-        const res = await fetch(API_BASE + "/advice", {
+        const res = await fetch(apiUrl("/advice"), {
           method:"POST", headers: {"Content-Type":"application/json"},
           body: JSON.stringify(payload),
         });
         typing.bubble.classList.remove("typing");
-        if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+        if (!res.ok) {
+          // Yanıt metnini göstermek debug için faydalı
+          const txt = await res.text();
+          throw new Error(`HTTP ${res.status} • ${txt.slice(0,200)}`);
+        }
         const data = await res.json();
         typing.content.innerHTML = marked.parse(data.answer || "Veri yok");
       } catch (err) {
         typing.content.innerHTML = marked.parse(`**Hata:** İstek başarısız.\n\nLütfen daha sonra tekrar deneyin.`);
+        console.error("ADVICE ERROR:", err);
       } finally {
         elQ.value = ""; autoRows(); elQ.focus();
       }

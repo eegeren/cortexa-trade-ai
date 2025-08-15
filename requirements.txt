@@ -10,6 +10,4 @@ requests>=2.32
 tomli>=2.0
 rich
 faiss-cpu>=1.8
-
-# RAG / vdb iskeleti eklemek istersen:
-# faiss-cpu>=1.8
+requests_cache

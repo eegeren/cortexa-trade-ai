@@ -390,3 +390,41 @@ def spa_fallback(full_path: str):
     if INDEX_FILE and INDEX_FILE.exists():
         return FileResponse(str(INDEX_FILE), media_type="text/html; charset=utf-8")
     raise HTTPException(status_code=404, detail="index.html not found")
+
+# --- KOMPOZİT UYGULAMA (API: /api, WEB: /) ---
+
+# 1) Var olan API uygulamanızı "api_app" olarak saklayın
+api_app = app
+
+# 2) Dışa servis edilecek ana uygulama
+from fastapi import FastAPI
+from starlette.staticfiles import StaticFiles
+from pathlib import Path
+import os
+
+app = FastAPI(title="Cortexa (Web + API)")
+
+# 3) API'yi /api altına mount edin
+app.mount("/api", api_app)
+
+# 4) Web klasörünü kökten servis edin
+def _pick_web_dir() -> Path | None:
+    env_dir = os.getenv("WEB_DIR")
+    if env_dir and (Path(env_dir) / "index.html").exists():
+        return Path(env_dir).resolve()
+    cand1 = Path.cwd() / "web" / "index.html"
+    if cand1.exists():
+        return cand1.parent.resolve()
+    here = Path(__file__).resolve()
+    cand2 = (here.parents[2] / "web") if len(here.parents) >= 3 else None
+    if cand2 and (cand2 / "index.html").exists():
+        return cand2.resolve()
+    return None
+
+WEB_DIR = _pick_web_dir()
+if WEB_DIR:
+    app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="web")
+else:
+    @app.get("/", include_in_schema=False)
+    def _root_placeholder():
+        return {"ok": True, "service": "Cortexa Advice API (no web dir)"}

@@ -381,3 +381,20 @@ def _parse_inline_params(text: str) -> dict:
             out["stop_pct"] = float(ms2.group(0).replace(",", "."))
 
     return out
+
+# --- Statik site (index.html) servis ---
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+WEB_DIR = Path(__file__).resolve().parents[2] / "web"   # proje-kök/web
+
+# /advice, /prices vb. API rotaları zaten tanımlı.
+# Aşağıdaki mount, onlara ÇARPMADAN kalan tüm yolları statik dosyalara yönlendirir.
+if WEB_DIR.exists():
+    app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="site")
+
+    # Kök path'e gelen isteklerde index.html döndür (opsiyonel, ama faydalı)
+    @app.get("/")
+    def serve_index():
+        return FileResponse(WEB_DIR / "index.html")

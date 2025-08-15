@@ -1,0 +1,15 @@
+pandas>=2.2
+numpy>=1.26
+scikit-learn>=1.5
+xgboost>=2.0
+fastapi>=0.111
+uvicorn[standard]>=0.30
+python-dotenv>=1.0
+pydantic>=2.7
+requests>=2.32
+tomli>=2.0
+rich
+faiss-cpu>=1.8
+
+# RAG / vdb iskeleti eklemek istersen:
+# faiss-cpu>=1.8

@@ -1,0 +1,16 @@
+symbol = "BTCUSDT"
+interval = "1m"
+
+[risk]
+risk_per_trade = 0.01      # %1
+daily_loss_limit = 0.05    # %5
+max_drawdown = 0.20        # %20
+
+[fees]
+taker = 0.0006
+slippage = 0.0002
+
+[models]
+classifier = "../../models/classifier/xgb_cls.pkl"
+tp_regressor = "../../models/tp_regressor/xgb_tp.pkl"
+sl_regressor = "../../models/sl_regressor/xgb_sl.pkl"

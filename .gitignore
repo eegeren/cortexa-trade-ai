@@ -1,0 +1,10 @@
+# .gitignore
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.DS_Store
+.env
+data/
+reports/
+models/

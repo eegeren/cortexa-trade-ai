@@ -2,239 +2,113 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8" />
-  <title>Cortexa Advisor</title>
+  <title>Cortexa Chat Test</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     :root{
-      --bg:#f6f7fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
+      --bg:#f5f7fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
       --accent:#2563eb; --accent-2:#22c55e; --danger:#ef4444; --mono:#111827;
-      --bubble-user:#e8f0ff; --bubble-ai:#fff; --shadow:0 10px 30px rgba(2,6,23,.08);
-      --radius:16px; --chip:#eef2ff; --chip-ink:#1e293b; --badge:#f1f5f9;
-      --ctrl-bg:#f8fafc; --ctrl-brd:rgba(100,116,139,.22);
-    }
-    [data-theme="dark"]{
-      --bg:#0b1220; --card:#0f172a; --ink:#e5e7eb; --muted:#94a3b8;
-      --accent:#3b82f6; --accent-2:#22c55e; --danger:#ef4444; --mono:#e5e7eb;
-      --bubble-user:#102139; --bubble-ai:#0c1426; --chip:#0b1a33; --chip-ink:#cbd5e1; --badge:#0b1a33;
-      --shadow:0 10px 30px rgba(0,0,0,.35);
-      --ctrl-bg:#0d1a2f; --ctrl-brd:rgba(148,163,184,.18);
+      --bubble-user:#dbeafe; --bubble-ai:#fff; --shadow:0 8px 24px rgba(2,6,23,.06);
+      --radius:16px;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{
-      margin:0; font:16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue";
-      color:var(--ink); background:linear-gradient(180deg,rgba(59,130,246,.06) 0%, var(--bg) 150px);
+      margin:0; font:16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue";
+      color:var(--ink); background:linear-gradient(180deg,#eef2ff 0%, #f8fafc 100%);
     }
-    /* ===== Topbar ===== */
-    .topbar{
-      position:sticky; top:0; z-index:10; backdrop-filter:saturate(1.2) blur(6px);
-      background:linear-gradient(180deg,rgba(255,255,255,.7),rgba(255,255,255,0));
-      border-bottom:1px solid rgba(100,116,139,.15);
+    .wrap{max-width:980px; margin:40px auto; padding:0 16px}
+    .title{
+      font-size:28px; font-weight:800; letter-spacing:.2px; display:flex; align-items:center; gap:10px;
     }
-    [data-theme="dark"] .topbar{ background:linear-gradient(180deg,rgba(2,6,23,.55),rgba(2,6,23,0)); border-color:rgba(148,163,184,.15); }
-    .bar-wrap{max-width:1100px; margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:12px; }
-    .brand{
-      display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:.2px;
+    .title .logo{font-size:22px; background:#111827; color:#fff; width:36px; height:36px; border-radius:10px;
+      display:grid; place-items:center}
+    .toolbar-top{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:10px 0 8px;
     }
-    .logo-badge{width:36px; height:36px; border-radius:10px; background:#111827; color:#fff; display:grid; place-items:center; font-weight:900}
-    [data-theme="dark"] .logo-badge{background:#0b1220; border:1px solid #1f2937}
-    .brand .name{font-size:18px}
-    .spacer{flex:1}
-    .icon-btn{height:38px; padding:0 12px; border-radius:10px; border:1px solid rgba(100,116,139,.25); background:transparent; color:var(--ink); cursor:pointer}
-    .icon-btn:active{transform:translateY(1px)}
-    /* ===== Layout ===== */
-    .wrap{max-width:1100px; margin:20px auto 28px; padding:0 16px}
-    .hero{
-      display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:10px;
+    .toolbar-top input{
+      height:38px; border:1px solid #e5e7eb; border-radius:10px; padding:0 10px; background:#fff; outline:none;
     }
-    .hero-title{font-size:24px; font-weight:800; letter-spacing:.2px}
-    .hero-sub{color:var(--muted); font-size:14px}
+    .toolbar-top .btn{
+      height:38px; padding:0 12px; border-radius:10px; border:0; color:#fff; background:var(--accent);
+      font-weight:700; cursor:pointer;
+    }
     .board{
-      margin-top:8px; background:var(--card); border-radius:20px; box-shadow:var(--shadow);
+      margin-top:10px; background:var(--card); border-radius:20px; box-shadow:var(--shadow);
       padding:18px; height:62vh; overflow:auto; scroll-behavior:smooth;
     }
-    /* ===== Bubbles ===== */
     .row{display:flex; gap:12px; margin:12px 0}
     .row.user{justify-content:flex-end}
     .bubble{
-      position:relative;
-      max-width:min(78%, 760px); padding:14px 16px; border-radius:14px;
+      max-width:min(75%, 700px); padding:14px 16px; border-radius:14px;
       background:var(--bubble-ai); box-shadow:0 2px 10px rgba(2,6,23,.05);
-      border:1px solid rgba(100,116,139,.2);
+      border:1px solid #e5e7eb;
     }
-    .row.user .bubble{background:var(--bubble-user); border-color:rgba(59,130,246,.35)}
-    /* başlıklar gizli — sade görünüm */
-    .head{display:none}
-    .copy{
-      position:absolute; top:8px; right:8px;
-      background:transparent; border:1px solid rgba(100,116,139,.25); color:var(--ink);
-      padding:6px 10px; border-radius:10px; cursor:pointer; font-size:13px
-    }
-    .md :is(h1,h2,h3){margin:.6em 0 .35em}
+    .row.user .bubble{background:var(--bubble-user); border-color:#bfdbfe}
+    .md :is(h1,h2,h3){margin:.6em 0 .3em}
     .md h2{font-size:18px}
     .md h3{font-size:16px}
-    .md p{margin:.45em 0}
+    .md p{margin:.4em 0}
     .md strong{font-weight:700}
-    .md table{border-collapse:collapse; width:100%; margin:.6em 0; border:1px solid rgba(100,116,139,.25); border-radius:10px; overflow:hidden}
-    .md th,.md td{border-bottom:1px solid rgba(100,116,139,.25); padding:10px 12px; text-align:left}
-    .md thead th{background:var(--badge); font-weight:800}
-    .md code{background:#0f172a; color:#fff; padding:.15em .4em; border-radius:6px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas; font-size:90%}
-    /* ===== Chips ===== */
-    .chips{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0}
-    .chip{padding:6px 10px; border-radius:999px; background:var(--chip); color:var(--chip-ink); border:1px solid rgba(100,116,139,.25); cursor:pointer; font-size:13px}
-    /* ===== Controls ===== */
-    .controlbar{
-      display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;
-      background:var(--ctrl-bg); border:1px solid var(--ctrl-brd);
-      padding:12px; border-radius:14px; margin-top:12px;
+    .md table{border-collapse:collapse; width:100%; margin:.6em 0; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden}
+    .md th,.md td{border-bottom:1px solid #e5e7eb; padding:10px 12px; text-align:left}
+    .md thead th{background:#f8fafc; font-weight:800}
+    .toolbar{
+      margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap
     }
-    .ctrl{display:flex; flex-direction:column; gap:6px; min-width:140px}
-    .ctrl.small{min-width:110px}
-    .ctrl .lbl{font-size:12px; color:var(--muted); font-weight:600; letter-spacing:.2px}
-    .ctrl input, .ctrl select, .ctrl textarea{
-      height:40px; border:1px solid var(--ctrl-brd); border-radius:10px; padding:0 10px; background:transparent; color:var(--ink); outline:none;
+    input[type="text"], input[type="number"], select{
+      height:44px; border:1px solid #e5e7eb; border-radius:12px; padding:0 12px; background:#fff;
+      outline:none; transition:.15s; min-width: 0;
     }
-    .ctrl textarea{height:auto; min-height:40px; padding:8px 10px; resize:vertical}
-    .ctrl input:focus, .ctrl select:focus, .ctrl textarea:focus{ border-color:#93c5fd; box-shadow:0 0 0 3px rgba(59,130,246,.15) }
-    .ctrl .switch{
-      height:40px; display:flex; align-items:center; gap:8px; padding:0 10px;
-      border:1px solid var(--ctrl-brd); border-radius:10px; color:var(--muted);
+    input[type="text"]{flex:1}
+    input[type="text"]:focus, input[type="number"]:focus, select:focus{border-color:#93c5fd; box-shadow:0 0 0 4px rgba(59,130,246,.15)}
+    .btn{
+      height:44px; padding:0 18px; border-radius:12px; border:0; color:#fff; background:var(--accent);
+      font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(37,99,235,.25);
     }
-    .ctrl .switch input{margin:0}
-    .send-wrap{margin-left:auto; display:flex; align-items:end}
-    .btn{height:44px; padding:0 18px; border-radius:12px; border:0; color:#fff; background:var(--accent);
-      font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(37,99,235,.25);}
     .btn:disabled{opacity:.6; cursor:not-allowed; box-shadow:none}
-    .filters{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px}
-    .filters .pill{background:var(--badge); padding:6px 10px; border-radius:999px; font-size:12px; border:1px solid rgba(100,116,139,.25)}
+    .switch{display:flex; align-items:center; gap:6px; font-size:14px; color:var(--muted)}
     .hint{font-size:12px; color:var(--muted); margin-top:8px}
-    .settings{margin-top:8px; font-size:12px; color:var(--muted)}
-    .settings input{height:36px}
-    /* ===== Modal ===== */
-    .modal { position:fixed; inset:0; display:none; place-items:center; background:rgba(15,23,42,.55); z-index:50; }
-    .modal.show { display:grid; }
-    .modal-card{
-      width:min(560px, 92%); background:var(--card); border-radius:16px; box-shadow:0 20px 60px rgba(2,6,23,.35);
-      padding:22px; border:1px solid rgba(100,116,139,.25);
+    .copy{
+      background:#f8fafc; color:var(--mono); border:1px solid #e5e7eb; border-radius:10px; padding:6px 10px;
+      font-size:13px; cursor:pointer; margin-left:auto;
     }
-    .modal-card h3{margin:0 0 8px; font-size:18px}
-    .modal-card p{color:var(--muted); margin:6px 0}
-    .modal-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:14px}
-    .btn-ghost{height:42px; padding:0 14px; border-radius:12px; border:1px solid rgba(100,116,139,.25); background:transparent; color:var(--ink); cursor:pointer}
-    /* ===== Typing & Toast ===== */
-    .typing{position:relative; overflow:hidden}
-    .typing:after{content:""; position:absolute; inset:0; background:linear-gradient(90deg, transparent, rgba(148,163,184,.15), transparent); animation:sh 1.2s infinite}
-    @keyframes sh{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
-    .toast{position:fixed; right:16px; bottom:16px; background:var(--card); color:var(--ink); border:1px solid rgba(100,116,139,.25); padding:10px 14px; border-radius:10px; box-shadow:var(--shadow); opacity:0; transform:translateY(10px); transition:.2s; z-index:60}
-    .toast.show{opacity:1; transform:translateY(0)}
-    /* ===== Responsive ===== */
-    @media (max-width:720px){
-      .ctrl{min-width:120px}
-      .ctrl.small{min-width:100px}
-      .send-wrap{width:100%}
-      .btn{width:100%}
-    }
+    .head{display:flex; align-items:center; gap:10px; margin-bottom:8px}
+    .typing{opacity:.7}
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <div class="bar-wrap">
-      <div class="brand">
-        <div class="logo-badge">CX</div>
-        <div>
-          <div class="name">Cortexa Advisor</div>
-          <div class="hero-sub">Finansal içgörü ve planlama asistanı</div>
-        </div>
-      </div>
-      <div class="spacer"></div>
-      <button class="icon-btn" id="themeBtn">🌗 Tema</button>
-    </div>
-  </div>
-
   <div class="wrap">
-    <div class="hero">
-      <div class="hero-title">Sohbet</div>
-      <div class="hero-sub">Net, kısa ve uygulanabilir yanıtlar</div>
+    <div class="title"><span class="logo">CX</span> Cortexa Chat Test</div>
+
+    <!-- Üst çubuk: API ayarı + Health testi -->
+    <div class="toolbar-top">
+      <label>API:
+        <input id="api" type="text" value="http://localhost:8081" style="width:280px">
+      </label>
+      <button id="health" class="btn">Bağlantıyı Test Et</button>
+      <span id="healthStatus" class="hint"></span>
     </div>
 
     <div class="board" id="board"></div>
 
-    <div class="chips" id="examples">
-      <div class="chip" data-q="btc vs euro (6 ay, orta risk, 100k, %2 stop)">BTC vs EUR (ör.)</div>
-      <div class="chip" data-q="altın almalı mıyım? (12 ay, düşük risk)">Altın almalı mıyım?</div>
-      <div class="chip" data-q="Apple mı Tesla mı? (orta risk, 6 ay, 50k)">Apple vs Tesla</div>
-      <div class="chip" data-q="portföyümü nasıl dağıtmalıyım? (uzun vade, orta risk)">Portföy dağılımı</div>
-      <div class="chip" data-q="btc kaldıraçlı öner (orta risk, 50k, %1.5 stop)">BTC kaldıraçlı öner</div>
+    <div class="toolbar">
+      <input id="q" type="text" placeholder="Sorunuzu yazın… örn: ‘btc vs euro (6 ay, orta risk, 100k, %2 stop)’" />
+      <select id="risk">
+        <option value="">Risk</option>
+        <option>dusuk</option><option>orta</option><option>yuksek</option>
+      </select>
+      <input id="horizon" type="text" placeholder="Vade (örn. 6 ay)" style="width:120px" />
+      <input id="capital" type="number" placeholder="Sermaye" style="width:130px" />
+      <input id="stop" type="number" step="0.001" placeholder="Stop (0.02)" style="width:110px" />
+      <label class="switch"><input id="prices" type="checkbox" checked /> Fiyatları ekle</label>
+      <button id="send" class="btn">Gönder</button>
     </div>
-
-    <div class="filters" id="filterChips" style="display:none;"></div>
-
-    <div class="controlbar">
-      <div class="ctrl" style="flex:1 1 420px">
-        <div class="lbl">Soru</div>
-        <textarea id="q" rows="1" placeholder="Örn: btc vs euro (6 ay, orta risk, 100k, %2 stop)"></textarea>
-      </div>
-      <div class="ctrl small">
-        <div class="lbl">Risk</div>
-        <select id="risk">
-          <option value="">Seç</option>
-          <option>dusuk</option><option>orta</option><option>yuksek</option>
-        </select>
-      </div>
-      <div class="ctrl small">
-        <div class="lbl">Vade</div>
-        <input id="horizon" type="text" placeholder="örn. 6 ay" />
-      </div>
-      <div class="ctrl small">
-        <div class="lbl">Sermaye</div>
-        <input id="capital" type="number" placeholder="örn. 100000" />
-      </div>
-      <div class="ctrl small">
-        <div class="lbl">Stop</div>
-        <input id="stop" type="number" step="0.001" placeholder="0.02" />
-      </div>
-      <div class="ctrl small">
-        <div class="lbl">Fiyatlar</div>
-        <label class="switch"><input id="prices" type="checkbox" checked /> Ekle</label>
-      </div>
-      <div class="send-wrap">
-        <button id="send" class="btn">Gönder</button>
-      </div>
-    </div>
-
-    <div class="settings">
-      API: <input id="api" type="text" style="width:320px" />
-      <button id="saveApi" class="icon-btn">Kaydet</button>
-      <span class="hint">CORS açık olmalı • <code>/health</code> → ok:true</span>
-    </div>
+    <div class="hint">CORS açık olmalı. Backend için: <code>uvicorn src.live.advice_server:app --host 0.0.0.0 --port 8081 --reload</code></div>
   </div>
-
-  <!-- Terms Modal -->
-  <div id="termsModal" class="modal">
-    <div class="modal-card">
-      <h3>Kullanım Koşulları</h3>
-      <p>Bu platform eğitim ve genel bilgilendirme amaçlıdır. İşlem kararları size aittir.</p>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:10px">
-        <input type="checkbox" id="termsChk" />
-        <span>Koşulları okudum ve kabul ediyorum.</span>
-      </label>
-      <div class="modal-actions">
-        <button id="termsCancel" class="btn-ghost">Vazgeç</button>
-        <button id="termsAccept" class="btn">Devam et</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="toast" class="toast"></div>
 
   <script>
-    /* ====== STATE & UTIL ====== */
-    const DEFAULT_API = "http://localhost:8081/advice";
-    const API_KEY = "cx_api";
-    const TERMS_KEY = "cx_terms_ok";
-    const THEME_KEY = "cx_theme";
-
     const elBoard  = document.getElementById("board");
     const elQ      = document.getElementById("q");
     const elSend   = document.getElementById("send");
@@ -244,62 +118,14 @@
     const elStop   = document.getElementById("stop");
     const elPrices = document.getElementById("prices");
     const elApi    = document.getElementById("api");
-    const elSaveApi= document.getElementById("saveApi");
-    const examples = document.getElementById("examples");
-    const filterChips = document.getElementById("filterChips");
-    const toast   = document.getElementById("toast");
+    const elHealth = document.getElementById("health");
+    const elHealthStatus = document.getElementById("healthStatus");
 
-    /* Theme */
-    const themeBtn = document.getElementById("themeBtn");
-    const setTheme = (t)=>{ document.documentElement.setAttribute("data-theme", t); localStorage.setItem(THEME_KEY, t); };
-    setTheme(localStorage.getItem(THEME_KEY) || "light");
-    themeBtn.onclick = ()=> setTheme(document.documentElement.getAttribute("data-theme")==="light"?"dark":"light");
-
-    /* API config */
-    elApi.value = localStorage.getItem(API_KEY) || DEFAULT_API;
-    function API(){ return localStorage.getItem(API_KEY) || DEFAULT_API; }
-    elSaveApi.onclick = ()=>{ localStorage.setItem(API_KEY, elApi.value.trim() || DEFAULT_API); ping("API kaydedildi"); };
-
-    /* Toast */
-    function ping(msg){ toast.textContent = msg; toast.classList.add("show"); setTimeout(()=>toast.classList.remove("show"),1500); }
-
-    /* Terms */
-    const modal   = document.getElementById("termsModal");
-    const chk     = document.getElementById("termsChk");
-    const btnOk   = document.getElementById("termsAccept");
-    const btnNo   = document.getElementById("termsCancel");
-    function lockUI(lock){ [elQ, elSend, elRisk, elHorizon, elCap, elStop, elPrices].forEach(x=> x.disabled = lock); }
-    function openTerms(){ modal.classList.add("show"); lockUI(true); }
-    function closeTerms(){ modal.classList.remove("show"); lockUI(false); elQ.focus(); }
-    btnOk.onclick = () => { if(!chk.checked) { ping("Lütfen koşulları onaylayın"); return; } localStorage.setItem(TERMS_KEY, "1"); closeTerms(); };
-    btnNo.onclick = () => { window.location.href = "about:blank"; };
-    if(localStorage.getItem(TERMS_KEY) !== "1"){ openTerms(); } else { closeTerms(); }
-
-    /* Examples */
-    examples.addEventListener("click", (e)=>{
-      const chip = e.target.closest(".chip"); if(!chip) return;
-      elQ.value = chip.dataset.q || ""; autoRows(); elQ.focus();
-    });
-
-    /* Filter chips */
-    function refreshFilterChips(){
-      const parts = [];
-      if (elHorizon.value) parts.push(["Vade", elHorizon.value]);
-      if (elRisk.value)    parts.push(["Risk", elRisk.value]);
-      if (elCap.value)     parts.push(["Sermaye", Number(elCap.value).toLocaleString("tr-TR")]);
-      if (elStop.value)    parts.push(["Stop", elStop.value]);
-      filterChips.innerHTML = parts.map(p=>`<div class="pill"><strong>${p[0]}:</strong> ${p[1]}</div>`).join("");
-      filterChips.style.display = parts.length ? "flex" : "none";
+    function apiBase(){
+      let base = elApi.value.trim().replace(/\/+$/,'');
+      return base || "http://localhost:8081";
     }
-    ["input","change"].forEach(ev=>{
-      [elHorizon, elRisk, elCap, elStop].forEach(el=> el.addEventListener(ev, refreshFilterChips));
-    });
 
-    /* Autosize textarea */
-    function autoRows(){ elQ.style.height = "auto"; elQ.style.height = Math.min(elQ.scrollHeight, 220) + "px"; }
-    elQ.addEventListener("input", autoRows); autoRows();
-
-    /* Chat bubbles */
     function addBubble({role, html, raw, typing}) {
       const row = document.createElement("div");
       row.className = "row " + (role === "user" ? "user" : "ai");
@@ -308,21 +134,30 @@
       bubble.className = "bubble" + (typing ? " typing" : "");
 
       const head = document.createElement("div");
-      head.className = "head"; // gizli
-      bubble.appendChild(head);
+      head.className = "head";
+      // Başlıkları kaldırmak istiyorsan bu iki satırı yoruma al:
+      // const brand = document.createElement("div");
+      // brand.textContent = role === "user" ? "Kullanıcı" : "Cortexa";
 
-      const content = document.createElement("div");
-      content.className = "md";
-      content.innerHTML = marked.parse(html ?? (typing ? " " : ""));
-      bubble.appendChild(content);
-
+      // Kopyala butonu (sadece AI)
       if (role !== "user" && !typing) {
         const btn = document.createElement("button");
         btn.className = "copy";
         btn.textContent = "Kopyala";
-        btn.onclick = () => { navigator.clipboard.writeText(raw || bubble.innerText); ping("Kopyalandı ✓"); };
-        bubble.appendChild(btn);
+        btn.onclick = () => {
+          navigator.clipboard.writeText(raw || bubble.innerText);
+          btn.textContent = "Kopyalandı ✓";
+          setTimeout(()=>btn.textContent="Kopyala", 1200);
+        };
+        head.appendChild(btn);
       }
+
+      bubble.appendChild(head);
+
+      const content = document.createElement("div");
+      content.className = "md";
+      content.innerHTML = marked.parse(html ?? (typing ? "_yazıyor…_" : ""));
+      bubble.appendChild(content);
 
       row.appendChild(bubble);
       elBoard.appendChild(row);
@@ -351,16 +186,17 @@
         capital: elCap.value ? Number(elCap.value) : null,
         stop_pct: elStop.value ? Number(elStop.value) : null,
         show_prices: elPrices.checked,
-        suppress_disclaimer: (localStorage.getItem(TERMS_KEY) === "1")
+        // Kullanım koşullarını kabul ettiysen uyarıyı bastır (frontend tarafında)
+        suppress_disclaimer: true
       };
 
-      addBubble({ role:"user", html: user_query + (userTextPreview(payload) ? "\n\n" + userTextPreview(payload) : "") });
+      addBubble({ role:"user", html: marked.parseInline(user_query + userTextPreview(payload)) });
 
       elSend.disabled = true;
       const typing = addBubble({ role:"ai", html: "_yazıyor…_", typing: true });
 
       try {
-        const res = await fetch(API(), {
+        const res = await fetch(apiBase() + "/advice", {
           method:"POST",
           headers: {"Content-Type":"application/json"},
           body: JSON.stringify(payload),
@@ -378,22 +214,31 @@
         typing.content.innerHTML = marked.parse(answer);
 
       } catch (err) {
-        typing.content.innerHTML = marked.parse(`**Hata:** ${String(err.message || err)}\n\nSunucu çalışıyor mu? \`/health\` → **ok:true**`);
+        typing.content.innerHTML = marked.parse(`**Hata:** ${String(err.message || err)}\n\nSunucu çalışıyor mu? \`${apiBase()}/health\` → **ok:true**`);
       } finally {
         elSend.disabled = false;
         elQ.value = "";
-        autoRows();
-        refreshFilterChips();
         elQ.focus();
       }
     }
 
-    document.getElementById("send").addEventListener("click", ask);
+    elSend.addEventListener("click", ask);
     elQ.addEventListener("keydown", (e)=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); ask(); } });
+
+    // Health testi
+    elHealth.addEventListener("click", async ()=>{
+      elHealthStatus.textContent = "Test ediliyor…";
+      try {
+        const r = await fetch(apiBase() + "/health");
+        const j = await r.json();
+        elHealthStatus.textContent = j.ok ? "Bağlantı OK ✅" : "Bağlantı başarısız ❌";
+      } catch {
+        elHealthStatus.textContent = "Bağlantı başarısız ❌";
+      }
+    });
 
     // İlk odak
     elQ.focus();
-    refreshFilterChips();
   </script>
 </body>
 </html>

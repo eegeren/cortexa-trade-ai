@@ -212,3 +212,70 @@ footer::before, footer::after,
   position: relative; width:100%; margin-top:16px;
 }
 [data-theme="dark"] .site-footer { border-top-color: rgba(100,116,139,.25) !important; }
+
+
+/* ==== MOBILE OPTIMIZE (≤ 768px) ==== */
+@media (max-width: 768px){
+  /* Genel tipografi / boşluk */
+  body{ font-size: 15px; }
+  .bar-wrap{ padding: 10px 12px; gap: 8px; }
+  .logo img{ width:38px; height:38px; }
+  .tagline{ display:none; } /* yer açılsın */
+
+  /* Grid'i tek kolona indir */
+  .wrap{
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto 1fr auto auto !important; /* chips, board, form, history */
+    height: auto;          /* sabit yükseklikten kurtul */
+    min-height: 0;
+    gap: 12px;
+  }
+
+  /* Öneri chipleri: üste, sarılabilir */
+  .chips{
+    grid-column:1; grid-row:1;
+    gap:6px; margin: 0; padding: 0 2px;
+    overflow-x:auto; -webkit-overflow-scrolling:touch;
+  }
+  .chip{ padding:6px 10px; font-size:12px; }
+
+  /* Chat alanı */
+  .board{
+    grid-column:1; grid-row:2;
+    height:auto;         /* sabit vh kaldır */
+    min-height: 46vh;    /* bari biraz yükseklik kalsın */
+    padding:12px;
+    border-radius:16px;
+  }
+  .row{ margin:10px 0; gap:8px; }
+  .bubble{ max-width: 92vw; } /* dar ekrana uyum */
+
+  /* Form: tam genişlik + alt yapışık */
+  .controlbar{
+    grid-column:1; grid-row:3;
+    position: sticky; bottom: 8px;
+    border-radius:12px;
+    padding:10px;
+    grid-template-columns: 1fr auto;
+    gap:8px;
+    box-shadow: 0 10px 24px rgba(2,6,23,.12);
+    backdrop-filter: saturate(1.05) blur(2px);
+  }
+  .ctrl{ padding:8px; border-radius:10px; }
+  .ctrl textarea{ min-height: 38px; font-size:14px; }
+  .btn{ height:40px; padding:0 14px; }
+
+  /* “Son Sorular”: en alta indir, kartlaşsın */
+  .history{
+    grid-column:1; grid-row:4;
+    padding:10px; margin-bottom: 12px;
+    max-height: 40vh; overflow:auto;
+  }
+  .hist-item{ font-size:13px; padding:10px; }
+
+  /* iOS beyaz ‘köşe’ taşmalarına karşı */
+  .board, .controlbar, .history{ -webkit-mask-image: -webkit-radial-gradient(white, black); }
+}
+
+/* iOS scroll ivmesi */
+.board, .history, .chips{ -webkit-overflow-scrolling: touch; }

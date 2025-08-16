@@ -4,167 +4,12 @@
   <meta charset="utf-8" />
   <title>Cortexa Advisor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- API hedefi -->
   <meta name="api-base" content="https://www.cortexaai.net/api">
-
-  <!-- Favicon / app icon -->
   <link rel="icon" type="image/png" sizes="32x32" href="logo.png">
   <link rel="apple-touch-icon" sizes="180x180" href="logo.png">
   <meta name="theme-color" content="#0f172a" />
-
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <style>
-    :root{
-      --bg:#f6f7fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
-      --accent:#2563eb; --accent-2:#22c55e; --danger:#ef4444;
-      --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444;
-      --bubble-user:#e8f0ff; --bubble-ai:#fff; --shadow:0 10px 30px rgba(2,6,23,.08);
-      --chip:#eef2ff; --chip-ink:#1e293b; --badge:#f1f5f9;
-    }
-    [data-theme="dark"]{
-      --bg:#0b1220; --card:#0f172a; --ink:#e5e7eb; --muted:#94a3b8;
-      --accent:#3b82f6; --bubble-user:#0f274e; --bubble-ai:#0c1426;
-      --chip:#0b1a33; --chip-ink:#cbd5e1; --badge:#0b1a33;
-      --shadow:0 10px 30px rgba(0,0,0,.35);
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%; margin:0}
-    body{
-      font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Arial;
-      color:var(--ink);
-      background:linear-gradient(180deg,rgba(59,130,246,.06) 0%, var(--bg) 140px);
-      overflow:hidden;
-    }
-    /* --- TOPBAR --- */
-    .topbar{position:sticky; top:0; z-index:10; backdrop-filter:saturate(1.2) blur(6px);
-      background:linear-gradient(180deg,rgba(255,255,255,.60),rgba(255,255,255,0)); border-bottom:1px solid rgba(100,116,139,.15);}
-    [data-theme="dark"] .topbar{ background:linear-gradient(180deg,rgba(2,6,23,.55),rgba(2,6,23,0)); }
-    .bar-wrap{max-width:1180px; margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:12px;}
-    .logo{display:flex; align-items:center; gap:12px; font-weight:800}
-    .logo img{width:48px; height:48px; border-radius:12px; object-fit:cover; box-shadow:0 4px 18px rgba(2,6,23,.15);}
-    .tagline{font-size:12px; color:var(--muted); margin-top:-4px}
-    .spacer{flex:1}
-    .icon-btn{height:38px; padding:0 12px; border-radius:10px; border:1px solid rgba(100,116,139,.25); background:transparent; color:var(--ink); cursor:pointer}
-    .user-pill{display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; background:var(--badge); border:1px solid rgba(100,116,139,.2); font-size:13px}
-
-    /* --- LAYOUT (tam yükseklik) --- */
-    .wrap{
-      max-width:1180px;
-      margin:16px auto 0;
-      padding:0 16px 20px;
-      height:calc(100vh - 70px);
-      display:grid;
-      grid-template-columns: 260px 1fr;
-      grid-template-rows: 1fr auto auto;
-      gap:16px;
-      min-height:0;
-    }
-
-    /* SOL: Son Sorular (sidebar) */
-    .history{grid-row:1 / span 3; grid-column:1; background:var(--card); border:1px solid rgba(100,116,139,.18);
-      border-radius:14px; padding:12px; box-shadow:var(--shadow); overflow:auto; min-height:0}
-    .history h4{margin:2px 0 10px 0; font-size:13px; color:var(--muted)}
-    .hist-item{font-size:13px; padding:8px; border-radius:10px; border:1px solid rgba(100,116,139,.20); margin-bottom:8px; cursor:pointer}
-    .hist-item:hover{background:rgba(148,163,184,.10)}
-    @media (max-width:1000px){
-      .wrap{grid-template-columns:1fr; grid-template-rows: 1fr auto auto auto}
-      .history{grid-column:1; grid-row:4}
-    }
-
-    /* ORTA: board */
-    .board{grid-column:2; grid-row:1; background:var(--card); border-radius:20px; box-shadow:var(--shadow);
-      padding:18px; overflow:auto; min-height:0; padding-bottom:28px;}
-    @media (max-width:1000px){ .board{grid-column:1} }
-
-    /* --- CHAT BUBBLES --- */
-    .row{display:flex; gap:12px; margin:12px 0}
-    .row.user{justify-content:flex-end}
-    .bubble{max-width:min(76%, 720px)}
-    .card{background:var(--bubble-ai); border:1px solid rgba(100,116,139,.2); border-radius:14px; padding:14px 16px; box-shadow:0 2px 12px rgba(2,6,23,.06);}
-    .row.user .card{background:var(--bubble-user); border-color:rgba(59,130,246,.35)}
-    .head{display:flex; align-items:center; gap:10px; margin-bottom:6px}
-    .copy{margin-left:auto; background:transparent; border:1px solid rgba(100,116,139,.25); color:var(--ink); padding:6px 10px; border-radius:10px; cursor:pointer; font-size:13px}
-    .ai-title{display:flex; align-items:center; gap:8px; font-weight:700}
-    .ai-icon{width:26px; height:26px; border-radius:8px; display:grid; place-items:center; background:#0b1d39; color:#fff; font-size:14px}
-    .md :is(h1,h2,h3){margin:.6em 0 .35em} .md h2{font-size:18px} .md h3{font-size:16px}
-    .md p{margin:.45em 0} .md strong{font-weight:700}
-    .md table{border-collapse:collapse; width:100%; margin:.6em 0; border:1px solid rgba(100,116,139,.25); border-radius:10px; overflow:hidden}
-    .typing{opacity:.8}
-    .typing .dots{display:inline-flex; gap:3px; margin-left:6px}
-    .typing .dots i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5;animation:blink 1.2s infinite}
-    .typing .dots i:nth-child(2){animation-delay:.15s} .typing .dots i:nth-child(3){animation-delay:.3s}
-    @keyframes blink{0%,80%,100%{opacity:.2} 40%{opacity:1}}
-
-    /* chips */
-    .chips{grid-column:2; grid-row:2; display:flex; gap:8px; flex-wrap:wrap; overflow:auto; margin:0; padding:4px 0}
-    .chip{white-space:nowrap; padding:6px 10px; border-radius:999px; background:var(--chip); color:var(--chip-ink);
-      border:1px solid rgba(100,116,139,.25); cursor:pointer; font-size:13px; transition:.15s}
-    .chip:hover{transform:translateY(-1px); box-shadow:0 6px 16px rgba(2,6,23,.08)}
-    .chip.active{background:var(--accent); color:#fff; border-color:transparent}
-    @media (max-width:1000px){ .chips{grid-column:1} }
-
-    /* Quick actions (boş bırakıldı – yapıyı koruyor) */
-    .quick{grid-column:2; grid-row:2; display:flex; gap:10px; align-items:center; margin:0 0 6px; flex-wrap:wrap}
-    @media (max-width:1000px){ .quick{grid-column:1} }
-
-    /* form grid (sadece soru + gönder) – sticky footer */
-    .controlbar{
-      grid-column:2; grid-row:3;
-      display:grid; grid-template-columns:1fr auto; gap:10px; align-items:end;
-      background:rgba(148,163,184,.12); border:1px solid rgba(100,116,139,.22); padding:12px; border-radius:14px;
-      position:sticky; bottom:12px; z-index:5; backdrop-filter:saturate(1.1) blur(2px);
-    }
-    @media (max-width:1000px){ .controlbar{grid-column:1} }
-    .ctrl{display:flex; flex-direction:column; gap:6px; background:rgba(148,163,184,.08); padding:10px; border-radius:12px; border:1px solid rgba(100,116,139,.15)}
-    .ctrl .lbl{font-size:12px; color:var(--muted); font-weight:600; letter-spacing:.2px}
-    .ctrl textarea{height:auto; min-height:40px; padding:8px 10px; resize:vertical; border:1px solid rgba(100,116,139,.22); border-radius:10px; background:transparent; color:var(--ink)}
-    .ctrl textarea::placeholder{color:var(--muted); font-style:italic}
-    .btn{height:44px; padding:0 18px; border-radius:12px; border:0; color:#fff; background:var(--accent); font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(37,99,235,.25);}
-    .btn:disabled{opacity:.7; cursor:not-allowed; position:relative}
-    .btn:disabled::after{content:""; position:absolute; right:14px; top:50%; width:14px; height:14px; margin-top:-7px; border:2px solid rgba(255,255,255,.7); border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .riskbar{display:none}
-
-    /* ---------- Modal baz stilleri (login/signup için de) ---------- */
-    .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(2,6,23,.45); backdrop-filter:blur(8px) saturate(1.1); z-index:50}
-    .modal.open{display:flex; animation:fadeIn .2s ease-out}
-    @keyframes fadeIn{from{opacity:0} to{opacity:1}}
-    .modal-card{background:var(--card); color:var(--ink); width:min(420px,90vw); border-radius:16px; box-shadow:0 30px 80px rgba(2,6,23,.35); padding:18px; border:1px solid rgba(100,116,139,.22); transform:scale(.98); animation:pop .25s ease-out forwards}
-    @keyframes pop{to{transform:scale(1)}}
-    .modal h3{margin:0 0 8px 0}
-    .modal .row-2{display:grid; grid-template-columns:1fr; gap:10px}
-    .modal input{height:42px; border:1px solid rgba(100,116,139,.25); border-radius:10px; padding:0 10px; background:transparent; color:var(--ink)}
-    .modal .actions{display:flex; gap:8px; justify-content:flex-end; margin-top:12px}
-    .link{background:transparent; border:0; color:var(--accent); cursor:pointer}
-
-    /* ---------- WELCOME modern popup ---------- */
-    .welcome{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:60; background:rgba(2,6,23,.55); backdrop-filter:blur(10px) saturate(1.1)}
-    .welcome.open{display:flex; animation:fadeIn .25s ease-out}
-    .welcome-card{
-      width:min(560px,92vw); border-radius:20px; padding:22px; background:
-        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
-      border:1px solid rgba(148,163,184,.25); box-shadow:0 40px 120px rgba(2,6,23,.45);
-      transform:translateY(8px) scale(.98); opacity:0; animation:welcomePop .35s cubic-bezier(.2,.8,.2,1) .05s forwards;
-      position:relative; overflow:hidden;
-    }
-    @keyframes welcomePop{to{transform:translateY(0) scale(1); opacity:1}}
-    .welcome-card:before{
-      content:""; position:absolute; inset:-2px; border-radius:22px;
-      background:conic-gradient(from 0deg, #60a5fa, #22c55e, #f59e0b, #60a5fa);
-      filter:blur(18px); opacity:.15; animation:spinBg 8s linear infinite;
-    }
-    @keyframes spinBg{to{transform:rotate(360deg)}}
-    .welcome-body{position:relative}
-    .welcome-head{display:flex; align-items:center; gap:12px; margin-bottom:8px}
-    .welcome-logo{width:44px; height:44px; border-radius:12px; object-fit:cover; box-shadow:0 6px 20px rgba(2,6,23,.25)}
-    .welcome-title{font-weight:800; font-size:20px}
-    .welcome-sub{color:var(--muted); font-size:13px; margin-top:2px}
-    .welcome-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:14px}
-    .btn-ghost{border:1px solid rgba(100,116,139,.25); background:transparent; color:var(--ink); height:42px; padding:0 14px; border-radius:12px; cursor:pointer}
-    .btn-accept{background:var(--accent); color:#fff; border:0; height:42px; padding:0 18px; border-radius:12px; cursor:pointer; box-shadow:0 10px 30px rgba(37,99,235,.35)}
-    .welcome-list{margin:10px 0 0 0; padding-left:16px; color:var(--muted); font-size:13px}
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- TOPBAR -->
@@ -189,17 +34,21 @@
   <div class="wrap">
     <!-- SOL: Son Sorular -->
     <div class="history" id="historyPanel">
-      <h4>Son Sorular</h4>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <h4 style="margin:2px 0 10px 0">Son Sorular</h4>
+        <!-- Yeni: Son konuşmayı sil -->
+        <button id="clearLastBtn" class="icon-btn" style="height:32px;line-height:32px;padding:0 10px;">Son konuşmayı sil</button>
+      </div>
       <div id="histList"></div>
     </div>
 
     <!-- ORTA: Chat -->
     <div class="board" id="board"></div>
 
-    <!-- QUICK ACTIONS (boş) -->
+    <!-- QUICK ACTIONS -->
     <div class="quick" id="quick"></div>
 
-    <!-- ÖRNEK CHIPS -->
+    <!-- ÖRNEK CHIPS (öneriler altta, yapıyı koruyoruz) -->
     <div class="chips" id="examples">
       <div class="chip" data-q="btc vs euro (6 ay, orta risk, 100k, %2 stop)">btc vs euro (ör.)</div>
       <div class="chip" data-q="altın almalı mıyım? (12 ay, düşük risk)">altın almalı mıyım?</div>
@@ -207,7 +56,7 @@
       <div class="chip" data-q="btc kaldıraçlı öner (orta risk, 50k, %1.5 stop)">btc kaldıraçlı öner</div>
     </div>
 
-    <!-- SADE FORM -->
+    <!-- FORM -->
     <div class="controlbar">
       <div class="ctrl" style="grid-column:1;">
         <div class="lbl">Soru</div>
@@ -215,34 +64,20 @@
       </div>
       <button id="send" class="btn">Gönder</button>
 
-      <!-- Gizli eski alanlar (yapıyı bozmamak için) -->
+      <!-- Gizli alanlar (yapıyı korumak için) -->
       <div class="ctrl small" style="display:none">
         <div class="lbl">Risk</div>
         <select id="risk"><option value="">Seç</option><option>dusuk</option><option>orta</option><option>yuksek</option></select>
         <div class="riskbar"><span id="riskFill"></span></div>
       </div>
-      <div class="ctrl small" style="display:none">
-        <div class="lbl">Vade</div>
-        <input id="horizon" type="text" placeholder="örn. 6 ay" />
-      </div>
-      <div class="ctrl small" style="display:none">
-        <div class="lbl">Sermaye</div>
-        <input id="capital" type="number" placeholder="örn. 100000" />
-      </div>
-      <div class="ctrl small" style="display:none">
-        <div class="lbl">Stop</div>
-        <input id="stop" type="number" step="0.001" placeholder="0.02" />
-      </div>
-      <div class="ctrl small" style="display:none">
-        <div class="lbl">Fiyatlar</div>
-        <label style="height:40px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid rgba(100,116,139,.22);border-radius:10px;color:var(--muted);">
-          <input id="prices" type="checkbox" checked /> Ekle
-        </label>
-      </div>
+      <div class="ctrl small" style="display:none"><div class="lbl">Vade</div><input id="horizon" type="text" placeholder="örn. 6 ay" /></div>
+      <div class="ctrl small" style="display:none"><div class="lbl">Sermaye</div><input id="capital" type="number" placeholder="örn. 100000" /></div>
+      <div class="ctrl small" style="display:none"><div class="lbl">Stop</div><input id="stop" type="number" step="0.001" placeholder="0.02" /></div>
+      <div class="ctrl small" style="display:none"><div class="lbl">Fiyatlar</div><label><input id="prices" type="checkbox" checked /> Ekle</label></div>
     </div>
   </div>
 
-  <!-- WELCOME MODAL (ilk giriş) -->
+  <!-- WELCOME MODAL -->
   <div class="welcome" id="welcomeModal" aria-hidden="true">
     <div class="welcome-card">
       <div class="welcome-body">
@@ -266,7 +101,7 @@
     </div>
   </div>
 
-  <!-- Giriş / Üye Ol Modalları -->
+  <!-- Login / Signup modal’ları (aynı) -->
   <div class="modal" id="loginModal">
     <div class="modal-card">
       <h3>Giriş Yap</h3>
@@ -296,270 +131,6 @@
     </div>
   </div>
 
-  <script>
-    // ====== API tabanı ======
-    const META_API = document.querySelector('meta[name="api-base"]')?.content?.trim() || "";
-    const AUTO_API = (location.hostname.endsWith("cortexaai.net") ? "https://api.cortexaai.net" : "");
-    const API_BASE = META_API || AUTO_API || "";
-
-    // ====== Tema ======
-    const THEME_KEY = "cx_theme";
-    const themeBtn = document.getElementById("themeBtn");
-    const setTheme = (t)=>{ document.documentElement.setAttribute("data-theme", t); localStorage.setItem(THEME_KEY, t); };
-    setTheme(localStorage.getItem(THEME_KEY) || "light");
-    themeBtn.onclick = ()=> setTheme(document.documentElement.getAttribute("data-theme")==="light"?"dark":"light");
-
-    // ====== Auth (localStorage simülasyon) ======
-    const userArea = document.getElementById('userArea');
-    function currentUser(){ try{ return JSON.parse(localStorage.getItem('cx_user')||'null'); }catch{ return null; } }
-    function renderUser(){
-      const u = currentUser();
-      if(!u){
-        userArea.innerHTML = `
-          <button class="icon-btn" id="loginBtn">Giriş</button>
-          <button class="icon-btn" id="signupBtn">Üye Ol</button>`;
-        document.getElementById('loginBtn').onclick = ()=> openModal('#loginModal');
-        document.getElementById('signupBtn').onclick = ()=> openModal('#signupModal');
-      }else{
-        userArea.innerHTML = `
-          <div class="user-pill">
-            <img src="logo.png" alt="" style="width:18px;height:18px;border-radius:6px" />
-            ${u.name || u.email}
-            <button class="icon-btn" id="logoutBtn" style="height:28px">Çıkış</button>
-          </div>`;
-        document.getElementById('logoutBtn').onclick = ()=>{ localStorage.removeItem('cx_user'); renderUser(); };
-      }
-    }
-    renderUser();
-
-    // Modal helpers
-    function openModal(sel){ document.querySelector(sel).classList.add('open'); }
-    function closeModal(sel){ document.querySelector(sel).classList.remove('open'); }
-    document.querySelectorAll('[data-close]').forEach(b=> b.onclick = ()=> closeModal(b.getAttribute('data-close')) );
-    document.getElementById('doLogin').onclick = ()=>{
-      const email = document.getElementById('loginEmail').value.trim();
-      const name = email.split('@')[0];
-      localStorage.setItem('cx_user', JSON.stringify({email, name}));
-      closeModal('#loginModal'); renderUser();
-    };
-    document.getElementById('doSignup').onclick = ()=>{
-      const email = document.getElementById('signupEmail').value.trim();
-      const name = document.getElementById('signupName').value.trim() || email.split('@')[0];
-      localStorage.setItem('cx_user', JSON.stringify({email, name}));
-      closeModal('#signupModal'); renderUser();
-    };
-
-    // ====== Elemanlar ======
-    const elBoard = document.getElementById("board");
-    const elQ = document.getElementById("q");
-    const elRisk = document.getElementById("risk");
-    const elRiskFill = document.getElementById("riskFill");
-    const elHorizon = document.getElementById("horizon");
-    const elCap = document.getElementById("capital");
-    const elStop = document.getElementById("stop");
-    const elPrices = document.getElementById("prices");
-    const sendBtn = document.getElementById("send");
-    const histPanel = document.getElementById("histList");
-
-    // Gizli kontroller (yapıyı koruyor)
-    [elRisk, elHorizon, elCap, elStop, elPrices].forEach(el=>{
-      if(!el) return;
-      const box = el.closest('.ctrl');
-      if(box) box.style.display = 'none';
-    });
-
-    function updateRiskBar(){
-      if(!elRisk || !elRiskFill) return;
-      const v = elRisk.value;
-      let pct = 0; if(v==='dusuk') pct=33; else if(v==='orta') pct=66; else if(v==='yuksek') pct=100;
-      elRiskFill.style.width = pct + '%';
-    }
-    if(elRisk) { elRisk.addEventListener('change', updateRiskBar); updateRiskBar(); }
-
-    // Örnek chipler
-    const examples = document.getElementById("examples");
-    examples.addEventListener("click", (e)=>{
-      const chip = e.target.closest(".chip"); if(!chip) return;
-      [...examples.querySelectorAll('.chip')].forEach(c=>c.classList.remove('active'));
-      chip.classList.add('active');
-      elQ.value = chip.dataset.q || ""; autoRows(); elQ.focus();
-    });
-
-    // Geçmiş
-    function getHistory(){ try{ return JSON.parse(localStorage.getItem('cx_hist')||'[]'); }catch{ return []; } }
-    function pushHistory(q){
-      const h=getHistory(); if(!q) return;
-      h.unshift({q, t:new Date().toISOString()});
-      const uniq=[]; const set=new Set();
-      for(const item of h){ if(!set.has(item.q)){ set.add(item.q); uniq.push(item); } if(uniq.length>=10) break; }
-      localStorage.setItem('cx_hist',JSON.stringify(uniq));
-      renderHistory();
-    }
-    function renderHistory(){
-      const h=getHistory();
-      histPanel.innerHTML = h.map(x=>`<div class="hist-item" data-q="${x.q.replace(/"/g,'&quot;')}">${x.q}</div>`).join("") || `<div class="hist-item" style="opacity:.7">Kayıt yok</div>`;
-    }
-    renderHistory();
-    document.getElementById("historyPanel").addEventListener("click",(e)=>{
-      const it=e.target.closest(".hist-item"); if(!it) return;
-      elQ.value = it.dataset.q || ""; autoRows(); elQ.focus();
-    });
-
-    // Autosize
-    function autoRows(){ elQ.style.height="auto"; elQ.style.height=Math.min(elQ.scrollHeight,180)+"px"; }
-    elQ.addEventListener("input", autoRows); autoRows();
-
-    // Sparkline oluşturucu (SVG)
-    function renderSparkline(values, w=220, h=48){
-      if(!Array.isArray(values) || values.length<2) return "";
-      const min=Math.min(...values), max=Math.max(...values);
-      const norm=v=> (h-6) - ( (v-min)/(max-min||1) )*(h-12);
-      const step=(w-12)/(values.length-1);
-      let d=`M6 ${norm(values[0])}`;
-      for(let i=1;i<values.length;i++) d+=` L${6+i*step} ${norm(values[i])}`;
-      return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-        <path d="${d}" fill="none" stroke="url(#g)" stroke-width="2"/>
-        <defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="0"><stop stop-color="#22c55e"/><stop offset="1" stop-color="#ef4444"/></linearGradient></defs>
-      </svg>`;
-    }
-
-    // Baloncuk (kartlı)
-    function addBubble({role, html, raw, typing, icon}) {
-      const row = document.createElement("div");
-      row.className = "row " + (role === "user" ? "user" : "ai");
-      const bubble = document.createElement("div"); bubble.className="bubble";
-      const card = document.createElement("div"); card.className = "card" + (typing ? " typing" : "");
-
-      const head = document.createElement("div"); head.className="head";
-      const left = document.createElement("div"); left.className="ai-title";
-      if(role!=="user"){
-        const ic = document.createElement("div"); ic.className="ai-icon"; ic.textContent = icon || "📊";
-        left.appendChild(ic); left.appendChild(document.createTextNode("Cortexa"));
-      }else{
-        left.appendChild(document.createTextNode("Kullanıcı"));
-      }
-      head.appendChild(left);
-
-      if (role !== "user" && !typing) {
-        const btn = document.createElement("button");
-        btn.className = "copy"; btn.textContent = "Kopyala";
-        btn.onclick = () => { navigator.clipboard.writeText(raw || card.innerText); btn.textContent="Kopyalandı ✓"; setTimeout(()=>btn.textContent="Kopyala",1200); };
-        head.appendChild(btn);
-      }
-      card.appendChild(head);
-
-      const content = document.createElement("div"); content.className="md";
-      content.innerHTML = marked.parse(html ?? (typing ? "_yazıyor…_ <span class='dots'><i></i><i></i><i></i></span>" : ""));
-      card.appendChild(content);
-
-      bubble.appendChild(card); row.appendChild(bubble); elBoard.appendChild(row); elBoard.scrollTop = elBoard.scrollHeight;
-      return { row, bubble:card, content };
-    }
-
-    // Markdown typewriter
-    async function typewriteMarkdown(el, md, chunk=40, delay=18){
-      let i=0;
-      while(i < md.length){
-        i += chunk;
-        el.innerHTML = marked.parse(md.slice(0, i));
-        await new Promise(r=>setTimeout(r, delay));
-      }
-    }
-
-    function userTextPreview(payload){
-      const parts = [];
-      if (payload.horizon) parts.push(`Vade: ${payload.horizon}`);
-      if (payload.risk) parts.push(`Risk: ${payload.risk}`);
-      if (payload.capital) parts.push(`Sermaye: ${Number(payload.capital).toLocaleString("tr-TR")}`);
-      if (payload.stop_pct) parts.push(`Stop: ${payload.stop_pct}`);
-      return parts.length ? " — " + parts.join(" | ") : "";
-    }
-
-    // ---- Dayanıklı fetch ----
-    async function robustFetch(url, options={}, retries=2, timeoutMs=8000) {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), timeoutMs);
-      try {
-        const res = await fetch(url, { ...options, signal: ctrl.signal });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res;
-      } catch (e) {
-        if (retries > 0) {
-          await new Promise(r => setTimeout(r, 400 * (3 - retries)));
-          return robustFetch(url, options, retries - 1, timeoutMs);
-        }
-        throw e;
-      } finally { clearTimeout(t); }
-    }
-
-    async function ask() {
-      const user_query = elQ.value.trim(); if (!user_query) return;
-      const payload = {
-        user_query,
-        horizon: elHorizon?.value?.trim?.() || "",
-        risk: elRisk?.value?.trim?.() || "",
-        capital: elCap && elCap.value ? Number(elCap.value) : null,
-        stop_pct: elStop && elStop.value ? Number(elStop.value) : null,
-        show_prices: elPrices ? elPrices.checked : true,
-        suppress_disclaimer: true
-      };
-
-      addBubble({ role:"user", html: marked.parseInline(user_query + userTextPreview(payload)) });
-      const typing = addBubble({ role:"ai", html: "_yazıyor…_", typing: true, icon:"🤖" });
-
-      sendBtn.disabled = true;
-      try {
-        const res = await robustFetch(API_BASE + "/advice", {
-          method:"POST", headers: {"Content-Type":"application/json"},
-          body: JSON.stringify(payload),
-        });
-        typing.bubble.classList.remove("typing");
-        const data = await res.json();
-        const answer = data.answer || "Veri yok";
-
-        const series = data.prices || data.series || data.sparkline || null;
-        if(series){
-          const chart = renderSparkline(series.map(Number).filter(n=>Number.isFinite(n)));
-          if(chart){
-            const box = document.createElement("div");
-            box.innerHTML = `<div style="margin:-2px 0 8px 0">${chart}</div>`;
-            typing.content.prepend(box);
-          }
-        }
-
-        await typewriteMarkdown(typing.content, answer);
-
-        pushHistory(user_query);
-      } catch (err) {
-        typing.content.innerHTML = marked.parse(`**Hata:** İstek başarısız. Lütfen tekrar deneyin.`);
-      } finally {
-        sendBtn.disabled = false;
-        elQ.value = ""; autoRows(); elQ.focus();
-      }
-    }
-
-    document.getElementById("send").addEventListener("click", ask);
-    elQ.addEventListener("keydown", (e)=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); ask(); } });
-    elQ.focus();
-
-    // ====== Welcome Modal Akışı ======
-    const ACCEPT_KEY = 'cx_accept_v1';
-    const welcome = document.getElementById('welcomeModal');
-    const btnAccept = document.getElementById('welcomeAccept');
-    const btnLoginW = document.getElementById('welcomeLogin');
-    const btnSignupW = document.getElementById('welcomeSignup');
-
-    function openWelcome(){ welcome.classList.add('open'); }
-    function closeWelcome(){ welcome.classList.remove('open'); }
-
-    // İlk ziyaret kontrolü
-    if(!localStorage.getItem(ACCEPT_KEY)){
-      openWelcome();
-    }
-
-    btnAccept.onclick = ()=>{ localStorage.setItem(ACCEPT_KEY,'1'); closeWelcome(); };
-    btnLoginW.onclick  = ()=>{ localStorage.setItem(ACCEPT_KEY,'1'); closeWelcome(); openModal('#loginModal'); };
-    btnSignupW.onclick = ()=>{ localStorage.setItem(ACCEPT_KEY,'1'); closeWelcome(); openModal('#signupModal'); };
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@
   <title>Cortexa Advisor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- Opsiyonel: API tabanını elle vermek için uncomment edin -->
-   <meta name="api-base" content="https://www.cortexaai.net/api">
+  <meta name="api-base" content="https://www.cortexaai.net/api">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     :root{
@@ -111,7 +111,7 @@
   </div>
 
   <script>
-    // ====== API tabanı (otomatik) ======
+    // ====== API tabanı ======
     const META_API = document.querySelector('meta[name="api-base"]')?.content?.trim() || "";
     const AUTO_API = (location.hostname.endsWith("cortexaai.net") ? "https://api.cortexaai.net" : "");
     const API_BASE = META_API || AUTO_API || ""; // "" => aynı origin
@@ -173,6 +173,23 @@
       return parts.length ? " — " + parts.join(" | ") : "";
     }
 
+    // ---- Dayanıklı fetch: retry + timeout ----
+    async function robustFetch(url, options={}, retries=2, timeoutMs=8000) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { ...options, signal: ctrl.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res;
+      } catch (e) {
+        if (retries > 0) {
+          await new Promise(r => setTimeout(r, 400 * (3 - retries)));
+          return robustFetch(url, options, retries - 1, timeoutMs);
+        }
+        throw e;
+      } finally { clearTimeout(t); }
+    }
+
     async function ask() {
       const user_query = elQ.value.trim(); if (!user_query) return;
       const payload = {
@@ -188,16 +205,20 @@
       const typing = addBubble({ role:"ai", html: "_yazıyor…_", typing: true });
 
       try {
-        const res = await fetch(API_BASE + "/advice", {
+        const res = await robustFetch(API_BASE + "/advice", {
           method:"POST", headers: {"Content-Type":"application/json"},
           body: JSON.stringify(payload),
         });
         typing.bubble.classList.remove("typing");
-        if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
         const data = await res.json();
         typing.content.innerHTML = marked.parse(data.answer || "Veri yok");
       } catch (err) {
-        typing.content.innerHTML = marked.parse(`**Hata:** İstek başarısız.\n\nLütfen daha sonra tekrar deneyin.`);
+        let msg = "İstek başarısız. Lütfen tekrar deneyin.";
+        const text = String(err?.message || err || "");
+        if (text.includes("HTTP 429")) msg = "Çok hızlı istek gönderildi. Biraz bekleyip tekrar deneyin.";
+        if (text.includes("HTTP 502") || text.includes("HTTP 503")) msg = "Sunucu yoğun. Kısa süre sonra düzelecektir.";
+        if (text.includes("abort")) msg = "Bağlantı zaman aşımına uğradı. İnternetinizi kontrol edin.";
+        typing.content.innerHTML = marked.parse(`**Hata:** ${msg}`);
       } finally {
         elQ.value = ""; autoRows(); elQ.focus();
       }

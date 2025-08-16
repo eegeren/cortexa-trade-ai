@@ -2,41 +2,50 @@
 from __future__ import annotations
 
 import os
+import traceback
+import logging
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
 
-# Mevcut API uygulamanı içe al (rotalar /advice, /prices, /plan, /compare, /health ...)
-# NOT: Bu modülde app = FastAPI(...) tanımlı olmalı.
+# --- notify() içe aktar (yoksa no-op) ---
+try:
+    from notifier import notify  # notify("mesaj")
+except Exception:
+    def notify(_msg: str) -> bool:  # fallback
+        try:
+            print("[notify:fallback]", _msg)
+        except Exception:
+            pass
+        return False
+
+# Mevcut API uygulaman (rotalar /advice, /prices, /plan, /compare, /health ...)
 from src.live.advice_server import app as api_app
 
 
 def _pick_web_dir() -> Path | None:
     """
     index.html'in bulunduğu /web dizinini bulur.
-    Öncelik sırası:
+    Öncelik:
       1) WEB_DIR env → (WEB_DIR/index.html)
-      2) Çalışma dizini /web → (cwd/web/index.html)
-      3) Bu dosyanın 1 üstünde /web → (main.py'nin ebeveyninde /web/index.html)
-      4) Bu dosyanın 2 üstünde /web → (proje kökü varsayımı)
+      2) CWD/web      → (cwd/web/index.html)
+      3) Bu dosyanın yanındaki /web
+      4) Bu dosyanın iki üstündeki /web
     """
-    # 1) Env
     env_dir = os.getenv("WEB_DIR")
     if env_dir and (Path(env_dir) / "index.html").exists():
         return Path(env_dir).resolve()
 
-    # 2) CWD/web
     cand = Path.cwd() / "web"
     if (cand / "index.html").exists():
         return cand.resolve()
 
-    # 3) main.py'nin bulunduğu klasörün yanındaki /web
     here = Path(__file__).resolve()
     if (here.parent / "web" / "index.html").exists():
         return (here.parent / "web").resolve()
 
-    # 4) iki üst (çoğu projede src/ ile çalışırken)
     if len(here.parents) >= 2:
         proj_root = here.parents[1]
         if (proj_root / "web" / "index.html").exists():
@@ -48,32 +57,116 @@ def _pick_web_dir() -> Path | None:
 # ---- Üst FastAPI uygulaması ----
 app = FastAPI(title="Cortexa – Web + API")
 
-# API'yi /api altına bağla (JSON rotaların hepsi burada kalır)
+# API'yi /api altına bağla
 app.mount("/api", api_app)
 
 # WEB klasörünü bul ve köke bağla
 WEB_DIR = _pick_web_dir()
 if WEB_DIR:
-    # /assets klasörü varsa ayrıca mount edelim (opsiyonel)
     assets_dir = WEB_DIR / "assets"
     if assets_dir.exists() and assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
-
-    # KÖK: tüm HTML isteklerini web'e ver (html=True → / ⇒ index.html)
     app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="webroot")
 else:
-    # WEB_DIR bulunamazsa bir bilgi log'u basalım
     print("[web] index.html bulunamadı. WEB_DIR env ayarlayın veya proje köküne /web/index.html ekleyin.")
+
+
+# ==================== Bildirimli Hata Yönetimi ====================
+
+# (Opsiyonel) Startup / Shutdown bildirimi
+@app.on_event("startup")
+async def _on_startup():
+    try:
+        notify("🟢 Backend başladı (startup)")
+    except Exception:
+        pass
+
+@app.on_event("shutdown")
+async def _on_shutdown():
+    try:
+        notify("🔴 Backend kapanıyor (shutdown)")
+    except Exception:
+        pass
+
+
+# Global Exception Handler — yakalanmamış tüm hataları bildir
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    try:
+        client = request.client.host if request.client else "?"
+        path = request.url.path
+        method = request.method
+        tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+        tb_short = tb[-2000:]  # Telegram mesaj limiti için kısalt
+        notify(
+            "❌ *Unhandled Error*\n"
+            f"• {method} {path}\n"
+            f"• client: {client}\n"
+            f"• err: {str(exc)}\n"
+            f"• trace:\n```\n{tb_short}\n```"
+        )
+    except Exception:
+        pass
+
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+
+
+# HTTP middleware — 5xx yanıtları ve HTTPException(>=500) bildirim
+@app.middleware("http")
+async def _error_middleware(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        if response.status_code >= 500:
+            try:
+                notify(f"⚠️ 5xx yanıt: {request.method} {request.url.path} → {response.status_code}")
+            except Exception:
+                pass
+        return response
+    except HTTPException as he:
+        if he.status_code >= 500:
+            try:
+                notify(f"⚠️ HTTPException: {request.method} {request.url.path} → {he.status_code} | {he.detail}")
+            except Exception:
+                pass
+        raise
+    except Exception:
+        # Diğer tüm hatalar global handler'a gidecek
+        raise
+
+
+# Logger → Telegram ERROR forward (opsiyonel)
+class TelegramHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            if len(msg) > 3500:
+                msg = msg[-3500:]
+            notify(f"📣 LOG {record.levelname}\n```\n{msg}\n```")
+        except Exception:
+            pass
+
+tg_handler = TelegramHandler()
+tg_handler.setLevel(logging.ERROR)
+tg_handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s"))
+
+root_logger = logging.getLogger()
+root_logger.addHandler(tg_handler)
+# Seviyeyi düşürmek istemezsen aşağıyı yorumla.
+# root_logger.setLevel(logging.INFO)
+
 
 """
 ⚙️ Railway notları
 -------------------
-- Environment:
-    PORT         → (Railway otomatik sağlar)
-    WEB_DIR      → /app/web  (önerilir; web/index.html burada)
-- Procfile (opsiyonel):
-    web: uvicorn main:app --host 0.0.0.0 --port ${PORT}
-- Testler:
-    /api/health  → {"ok": true}
-    /            → index.html (SPA)
+Env:
+  PORT         → (Railway verir)
+  WEB_DIR      → /app/web   (önerilir; web/index.html burada)
+  TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID → notifier için
+
+Procfile (opsiyonel):
+  web: uvicorn main:app --host 0.0.0.0 --port ${PORT}
+
+Test:
+  GET /api/health → {"ok": true}
+  GET /           → index.html (SPA)
 """

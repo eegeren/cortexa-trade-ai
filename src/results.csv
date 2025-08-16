@@ -1,0 +1,5 @@
+Symbol,Start,End,Interval,Horizon,Threshold,Signal Thresh,Test Size,Cost,Cap,Accuracy,Hit Rate,Win Avg,Loss Avg,Total Return,MDD,Equity
+BTC-USD,2021-01-01,2024-01-01,1d,5,0.03,0.6,0.2,0.001,0.3,,,,,,,
+ETH-USD,2021-01-01,2024-01-01,1d,5,0.03,0.6,0.2,0.001,0.3,,,,,,,
+SOL-USD,2021-01-01,2024-01-01,1d,5,0.03,0.6,0.2,0.001,0.3,,,,,,,
+BNB-USD,2021-01-01,2024-01-01,1d,5,0.03,0.6,0.2,0.001,0.3,,,,,,,

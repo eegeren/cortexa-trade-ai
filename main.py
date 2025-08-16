@@ -57,6 +57,11 @@ def _pick_web_dir() -> Path | None:
 # ---- Üst FastAPI uygulaması ----
 app = FastAPI(title="Cortexa – Web + API")
 
+# Basit health (ana app için ayrı uç)
+@app.get("/healthz")
+async def healthz():
+    return {"ok": True}
+
 # API'yi /api altına bağla
 app.mount("/api", api_app)
 
@@ -97,9 +102,9 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
         path = request.url.path
         method = request.method
         tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-        tb_short = tb[-2000:]  # Telegram mesaj limiti için kısalt
+        tb_short = tb[-2000:]  # mesaj limiti için kısalt
         notify(
-            "❌ *Unhandled Error*\n"
+            "❌ Unhandled Error\n"
             f"• {method} {path}\n"
             f"• client: {client}\n"
             f"• err: {str(exc)}\n"
@@ -112,18 +117,29 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
 
 
 # HTTP middleware — 5xx yanıtları ve HTTPException(>=500) bildirim
+# Statik isteklerde gürültüyü azalt: /assets, favicon, .css, .js vs.
+_SKIP_PREFIXES = ("/assets", "/static", "/favicon", "/robots.txt")
+_SKIP_EXTS = (".css", ".js", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".map")
+
+def _is_static(path: str) -> bool:
+    if any(path.startswith(p) for p in _SKIP_PREFIXES):
+        return True
+    if any(path.endswith(ext) for ext in _SKIP_EXTS):
+        return True
+    return False
+
 @app.middleware("http")
 async def _error_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
-        if response.status_code >= 500:
+        if response.status_code >= 500 and not _is_static(request.url.path):
             try:
                 notify(f"⚠️ 5xx yanıt: {request.method} {request.url.path} → {response.status_code}")
             except Exception:
                 pass
         return response
     except HTTPException as he:
-        if he.status_code >= 500:
+        if he.status_code >= 500 and not _is_static(request.url.path):
             try:
                 notify(f"⚠️ HTTPException: {request.method} {request.url.path} → {he.status_code} | {he.detail}")
             except Exception:
@@ -141,6 +157,9 @@ class TelegramHandler(logging.Handler):
             msg = self.format(record)
             if len(msg) > 3500:
                 msg = msg[-3500:]
+            # Statik kaynak hataları çok gürültü yapmasın:
+            if hasattr(record, "request_path") and _is_static(str(record.request_path)):
+                return
             notify(f"📣 LOG {record.levelname}\n```\n{msg}\n```")
         except Exception:
             pass
@@ -151,8 +170,7 @@ tg_handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s: %
 
 root_logger = logging.getLogger()
 root_logger.addHandler(tg_handler)
-# Seviyeyi düşürmek istemezsen aşağıyı yorumla.
-# root_logger.setLevel(logging.INFO)
+# root_logger.setLevel(logging.INFO)  # İstersen aç
 
 
 """
@@ -168,5 +186,6 @@ Procfile (opsiyonel):
 
 Test:
   GET /api/health → {"ok": true}
+  GET /healthz    → {"ok": true}
   GET /           → index.html (SPA)
 """

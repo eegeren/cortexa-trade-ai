@@ -117,7 +117,7 @@ def log(msg):
         f.write(line + "\n")
 
 def run_once_for_symbol(symbol: str):
-    log(f"▶ Güncelle başlıyor: {symbol}")
+    log(f"⏰ Tetik yakalandı, güncelle başlıyor: {symbol}")
     cmd = [
         PYTHON_BIN, str(TRAINER_PATH),
         "--mode", "update",
@@ -129,17 +129,17 @@ def run_once_for_symbol(symbol: str):
         "--cost", COST,
         "--cap", CAP
     ]
-    # Eğer trainer SIGNAL_THRESH'i de destekliyorsa gönder:
     if SIGNAL_THRESH:
         cmd += ["--signal-threshold", SIGNAL_THRESH]
 
-    # Çalıştır
-    proc = subprocess.run(
-        cmd,
-        cwd=str(ROOT),
-        capture_output=True,
-        text=True
-    )
+    try:
+        proc = subprocess.run(
+            cmd, cwd=str(ROOT),
+            capture_output=True, text=True, check=False
+        )
+    except Exception as e:
+        log(f"❌ Çalıştırma hatası: {symbol} -> {e}")
+        return
 
     sym_log = LOG_DIR / f"{symbol.replace('-','_')}.log"
     with sym_log.open("a", encoding="utf-8") as f:
@@ -152,7 +152,7 @@ def run_once_for_symbol(symbol: str):
     if proc.returncode == 0:
         log(f"✅ Tamam: {symbol}")
     else:
-        log(f"❌ Hata (code={proc.returncode}): {symbol}. Ayrıntı {sym_log.name} dosyasında.")
+        log(f"❌ Hata (code={proc.returncode}): {symbol}. Ayrıntı {sym_log.name} içinde.")
 
 # ---------- Main döngü ----------
 def main():

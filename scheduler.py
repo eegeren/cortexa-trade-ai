@@ -6,36 +6,23 @@ Railway worker scheduler
   src/online_crypto_trainer.py --mode update ... komutunu çalıştırır.
 - Durum dosyasıyla (state/scheduler_state.json) aynı gün içinde iki kez çalışmaz.
 - COINS: virgülle ayrılmış semboller (örn: BTC-USD,ETH-USD,BNB-USD,SOL-USD)
-- Sembolleri dosyadan okumak istersen: symbols.txt (bir satır = bir sembol)
 
-ENV değişkenleri:
-  RUN_AT="06:05"            # HH:MM (default)
-  TZ="Europe/Istanbul"      # default: Europe/Istanbul
-  COINS="BTC-USD,ETH-USD"   # yoksa symbols.txt denenir, o da yoksa default 10'lu liste
-  INTERVAL="1d"             # online_crypto_trainer için
-  HORIZON="5"
-  THRESHOLD="0.03"
-  SIGNAL_THRESH="0.6"       # (trainer bunu kullanıyorsa)
-  COST="0.001"
-  CAP="0.3"
-  ARTIFACTS_DIR="artifacts"
-  PYTHON_BIN=""             # boş ise sys.executable kullanılır
+ENV:
+  RUN_AT="06:05" | TZ="Europe/Istanbul" | COINS="BTC-USD,ETH-USD,BNB-USD,SOL-USD"
+  INTERVAL="1d" | HORIZON="5" | THRESHOLD="0.03" | SIGNAL_THRESH="0.6"
+  COST="0.001" | CAP="0.3" | ARTIFACTS_DIR="artifacts" | PYTHON_BIN=""
+  TELEGRAM_BOT_TOKEN="" | TELEGRAM_CHAT_ID="" | PING_URL=""
+  STARTUP_RUN="0"  # "1" ise açılışta bir tur çalıştırır
 
-  # Bildirimler (opsiyonel)
-  TELEGRAM_BOT_TOKEN=""
-  TELEGRAM_CHAT_ID=""
-  PING_URL=""               # basit webhook (POST JSON)
-  STARTUP_RUN="0"           # "1" ise sunucu ayağa kalkınca bir kez hemen çalıştır
-
-Railway'de "Start Command":  python scheduler.py
+Start Command (Railway):  python scheduler.py
 """
 
 import os, sys, time, json, signal, subprocess
 from datetime import datetime
 from pathlib import Path
 
-# ---------- Ayarlar (ENV + varsayılanlar) ----------
-RUN_AT         = os.getenv("RUN_AT", "06:05").strip()       # HH:MM
+# ---------- Ayarlar ----------
+RUN_AT         = os.getenv("RUN_AT", "06:05").strip()
 TZ             = os.getenv("TZ", "Europe/Istanbul").strip()
 COINS_ENV      = os.getenv("COINS", "").strip()
 INTERVAL       = os.getenv("INTERVAL", "1d").strip()
@@ -64,7 +51,14 @@ DEFAULT_COINS  = [
     "ADA-USD","DOGE-USD","TRX-USD","DOT-USD","MATIC-USD"
 ]
 
-# ---------- Yardımcılar ----------
+STOP = False
+def _handle_sig(sig, frame):
+    global STOP
+    STOP = True
+signal.signal(signal.SIGINT, _handle_sig)
+signal.signal(signal.SIGTERM, _handle_sig)
+
+# ---------- FS & Zaman ----------
 def ensure_dirs():
     (ROOT / ARTIFACTS_DIR).mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -82,13 +76,11 @@ def save_state(state):
     STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 def now_local():
-    # TZ uygulaması (Railway genelde UTC çalışır)
     try:
         import pytz
         tz = pytz.timezone(TZ)
         return datetime.now(tz)
     except Exception:
-        # pytz yoksa sistem saatini kullan (UTC olabilir)
         return datetime.now()
 
 def parse_run_at(s):
@@ -96,10 +88,8 @@ def parse_run_at(s):
     return int(hh), int(mm)
 
 def read_symbols():
-    # 1) ENV COINS
     if COINS_ENV:
         return [c.strip() for c in COINS_ENV.split(",") if c.strip()]
-    # 2) symbols.txt
     sym_file = ROOT / "symbols.txt"
     if sym_file.exists():
         syms = []
@@ -109,16 +99,9 @@ def read_symbols():
                 syms.append(line)
         if syms:
             return syms
-    # 3) DEFAULT
     return DEFAULT_COINS
 
-STOP = False
-def _handle_sig(sig, frame):
-    global STOP
-    STOP = True
-signal.signal(signal.SIGINT, _handle_sig)
-signal.signal(signal.SIGTERM, _handle_sig)
-
+# ---------- Log ----------
 def log(msg):
     ts = now_local().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] {msg}"
@@ -129,8 +112,11 @@ def log(msg):
     except Exception:
         pass
 
-# ---------- Bildirim (opsiyonel: Telegram / Webhook) ----------
+# ---------- Bildirim ----------
 def notify(msg: str):
+    """
+    Telegram veya Webhook (PING_URL). Hangi kanal deneniyorsa loglar.
+    """
     log(f"[notify] {msg}")
     sent = False
 
@@ -141,24 +127,43 @@ def notify(msg: str):
             data = _json.dumps({"chat_id": TELEGRAM_CHAT_ID, "text": msg}).encode("utf-8")
             url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
             req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=10) as _:
-                sent = True
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                code = resp.getcode()
+                log(f"[notify:telegram] HTTP {code}")
+                sent = (200 <= code < 300)
         except Exception as e:
-            log(f"[notify] Telegram gönderilemedi: {e}")
+            log(f"[notify:telegram] hata: {e}")
 
-    # Basit webhook
+    # Basit webhook (JSON)
     if (not sent) and PING_URL:
         try:
             import urllib.request, json as _json
-            data = _json.dumps({"message": msg, "source": "scheduler", "ts": now_local().isoformat()}).encode("utf-8")
+            data = _json.dumps({
+                "message": msg, "source": "scheduler", "ts": now_local().isoformat()
+            }).encode("utf-8")
             req = urllib.request.Request(PING_URL, data=data, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=10) as _:
-                sent = True
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                code = resp.getcode()
+                log(f"[notify:webhook] HTTP {code}")
+                sent = (200 <= code < 300)
         except Exception as e:
-            log(f"[notify] Webhook gönderilemedi: {e}")
+            log(f"[notify:webhook] hata: {e}")
 
+    if not sent:
+        log("[notify] Kanal yok ya da teslim edilemedi (Telegram env set edilmedi / webhook 2xx dönmedi).")
     return sent
 
+def notify_probe():
+    """
+    Başlangıçta kanal uygunluğunu raporlar ve test bildirimi yollar.
+    """
+    has_tg = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
+    has_wh = bool(PING_URL)
+    log(f"[probe] telegram={'OK' if has_tg else 'YOK'} | webhook={'OK' if has_wh else 'YOK'}")
+    delivered = notify("✅ Scheduler başlatıldı (probe)")
+    log(f"[probe] delivered={delivered}")
+
+# ---------- Çalıştır ----------
 def run_once_for_symbol(symbol: str):
     log(f"⏰ Tetik yakalandı, güncelle başlıyor: {symbol}")
     cmd = [
@@ -202,7 +207,7 @@ def run_once_for_symbol(symbol: str):
         log(f"❌ Hata (code={proc.returncode}): {symbol}. Ayrıntı {sym_log.name} içinde.")
         notify(f"❌ {symbol} update RC={proc.returncode} (log: {sym_log.name})")
 
-# ---------- Main döngü ----------
+# ---------- Main ----------
 def main():
     ensure_dirs()
 
@@ -215,9 +220,11 @@ def main():
     syms_preview = ", ".join(read_symbols())
     log(f"Scheduler hazır. TZ={TZ} | RUN_AT={RUN_AT} | PY={PYTHON_BIN}")
     log(f"Semboller: {syms_preview}")
-    notify(f"✅ Scheduler başlatıldı • TZ={TZ} • RUN_AT={RUN_AT} • Syms={syms_preview}")
 
-    # İsteğe bağlı: Sunucu ayağa kalkınca bir kez hemen çalıştır
+    # Başlangıçta bildirim kanalı provasını yap
+    notify_probe()
+
+    # İsteğe bağlı: açılışta bir tur çalıştır
     if STARTUP_RUN == "1":
         log("🚀 STARTUP_RUN=1 — İlk açılışta bir seferlik update başlıyor.")
         for sym in read_symbols():
@@ -236,13 +243,12 @@ def main():
         if (now.hour == hour_target and now.minute == min_target and
             state.get("last_run_date") != today_str):
 
-            # Bugün ilk kez çalışacağız
             symbols = read_symbols()
             notify(f"⏱️ Günlük görev tetiklendi • {today_str} • {RUN_AT}")
             for sym in symbols:
                 if STOP: break
                 run_once_for_symbol(sym)
-                time.sleep(2)  # servis nazikçe
+                time.sleep(2)
 
             state["last_run_date"] = today_str
             state["done_symbols"] = symbols
@@ -250,7 +256,7 @@ def main():
             log("🗓️ Günlük görev tamamlandı.")
             notify("🗓️ Günlük görev tamamlandı.")
 
-            # Aynı dakikada yeniden tetiklememek için 70sn bekle
+            # Aynı dakikada tekrar tetiklenmesin
             for _ in range(70):
                 if STOP: break
                 time.sleep(1)

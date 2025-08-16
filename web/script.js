@@ -238,7 +238,6 @@ function setTheme(t) {
   if (meta) meta.setAttribute("content", t === "dark" ? "#0b1220" : "#f6f7fb");
 }
 (function initTheme(){
-  // Kullanıcı kayıtlı seçim yaptıysa onu, yoksa sistem tercihi, o da yoksa 'dark'
   let initial = "dark";
   try {
     initial =

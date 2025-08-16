@@ -21,11 +21,17 @@ ENV değişkenleri:
   ARTIFACTS_DIR="artifacts"
   PYTHON_BIN=""             # boş ise sys.executable kullanılır
 
+  # Bildirimler (opsiyonel)
+  TELEGRAM_BOT_TOKEN=""
+  TELEGRAM_CHAT_ID=""
+  PING_URL=""               # basit webhook (POST JSON)
+  STARTUP_RUN="0"           # "1" ise sunucu ayağa kalkınca bir kez hemen çalıştır
+
 Railway'de "Start Command":  python scheduler.py
 """
 
 import os, sys, time, json, signal, subprocess
-from datetime import datetime, date
+from datetime import datetime
 from pathlib import Path
 
 # ---------- Ayarlar (ENV + varsayılanlar) ----------
@@ -40,6 +46,12 @@ COST           = os.getenv("COST", "0.001").strip()
 CAP            = os.getenv("CAP", "0.3").strip()
 ARTIFACTS_DIR  = os.getenv("ARTIFACTS_DIR", "artifacts").strip()
 PYTHON_BIN     = os.getenv("PYTHON_BIN", "").strip() or sys.executable
+STARTUP_RUN    = os.getenv("STARTUP_RUN", "0").strip()
+
+# Bildirim (opsiyonel)
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+PING_URL           = os.getenv("PING_URL", "").strip()
 
 ROOT           = Path(__file__).resolve().parent
 TRAINER_PATH   = ROOT / "src" / "online_crypto_trainer.py"
@@ -73,11 +85,10 @@ def now_local():
     # TZ uygulaması (Railway genelde UTC çalışır)
     try:
         import pytz
-        from datetime import timezone
         tz = pytz.timezone(TZ)
         return datetime.now(tz)
     except Exception:
-        # pytz yoksa sistem saatini kullan
+        # pytz yoksa sistem saatini kullan (UTC olabilir)
         return datetime.now()
 
 def parse_run_at(s):
@@ -112,9 +123,41 @@ def log(msg):
     ts = now_local().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] {msg}"
     print(line, flush=True)
-    # aynı zamanda ana log'a yaz
-    with (LOG_DIR / "scheduler.log").open("a", encoding="utf-8") as f:
-        f.write(line + "\n")
+    try:
+        with (LOG_DIR / "scheduler.log").open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+
+# ---------- Bildirim (opsiyonel: Telegram / Webhook) ----------
+def notify(msg: str):
+    log(f"[notify] {msg}")
+    sent = False
+
+    # Telegram
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        try:
+            import urllib.request, json as _json
+            data = _json.dumps({"chat_id": TELEGRAM_CHAT_ID, "text": msg}).encode("utf-8")
+            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as _:
+                sent = True
+        except Exception as e:
+            log(f"[notify] Telegram gönderilemedi: {e}")
+
+    # Basit webhook
+    if (not sent) and PING_URL:
+        try:
+            import urllib.request, json as _json
+            data = _json.dumps({"message": msg, "source": "scheduler", "ts": now_local().isoformat()}).encode("utf-8")
+            req = urllib.request.Request(PING_URL, data=data, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as _:
+                sent = True
+        except Exception as e:
+            log(f"[notify] Webhook gönderilemedi: {e}")
+
+    return sent
 
 def run_once_for_symbol(symbol: str):
     log(f"⏰ Tetik yakalandı, güncelle başlıyor: {symbol}")
@@ -139,20 +182,25 @@ def run_once_for_symbol(symbol: str):
         )
     except Exception as e:
         log(f"❌ Çalıştırma hatası: {symbol} -> {e}")
+        notify(f"❌ {symbol} update hata: {e}")
         return
 
     sym_log = LOG_DIR / f"{symbol.replace('-','_')}.log"
-    with sym_log.open("a", encoding="utf-8") as f:
-        f.write("\n" + "="*60 + "\n")
-        f.write("CMD: " + " ".join(cmd) + "\n")
-        f.write(proc.stdout or "")
-        if proc.stderr:
-            f.write("\n[stderr]\n" + proc.stderr)
+    try:
+        with sym_log.open("a", encoding="utf-8") as f:
+            f.write("\n" + "="*60 + "\n")
+            f.write("CMD: " + " ".join(cmd) + "\n")
+            f.write(proc.stdout or "")
+            if proc.stderr:
+                f.write("\n[stderr]\n" + proc.stderr)
+    except Exception:
+        pass
 
     if proc.returncode == 0:
         log(f"✅ Tamam: {symbol}")
     else:
         log(f"❌ Hata (code={proc.returncode}): {symbol}. Ayrıntı {sym_log.name} içinde.")
+        notify(f"❌ {symbol} update RC={proc.returncode} (log: {sym_log.name})")
 
 # ---------- Main döngü ----------
 def main():
@@ -160,12 +208,26 @@ def main():
 
     if not TRAINER_PATH.exists():
         log(f"❌ Bulunamadı: {TRAINER_PATH}")
+        notify("❌ Trainer dosyası bulunamadı (src/online_crypto_trainer.py)")
         sys.exit(1)
 
     hour_target, min_target = parse_run_at(RUN_AT)
+    syms_preview = ", ".join(read_symbols())
     log(f"Scheduler hazır. TZ={TZ} | RUN_AT={RUN_AT} | PY={PYTHON_BIN}")
-    log(f"Semboller: {', '.join(read_symbols())}")
+    log(f"Semboller: {syms_preview}")
+    notify(f"✅ Scheduler başlatıldı • TZ={TZ} • RUN_AT={RUN_AT} • Syms={syms_preview}")
 
+    # İsteğe bağlı: Sunucu ayağa kalkınca bir kez hemen çalıştır
+    if STARTUP_RUN == "1":
+        log("🚀 STARTUP_RUN=1 — İlk açılışta bir seferlik update başlıyor.")
+        for sym in read_symbols():
+            if STOP: break
+            run_once_for_symbol(sym)
+            time.sleep(2)
+        log("🚀 STARTUP_RUN tamamlandı.")
+        notify("🚀 STARTUP_RUN tamamlandı.")
+
+    # Ana döngü
     while not STOP:
         now = now_local()
         state = load_state()
@@ -176,6 +238,7 @@ def main():
 
             # Bugün ilk kez çalışacağız
             symbols = read_symbols()
+            notify(f"⏱️ Günlük görev tetiklendi • {today_str} • {RUN_AT}")
             for sym in symbols:
                 if STOP: break
                 run_once_for_symbol(sym)
@@ -185,6 +248,7 @@ def main():
             state["done_symbols"] = symbols
             save_state(state)
             log("🗓️ Günlük görev tamamlandı.")
+            notify("🗓️ Günlük görev tamamlandı.")
 
             # Aynı dakikada yeniden tetiklememek için 70sn bekle
             for _ in range(70):
@@ -197,6 +261,7 @@ def main():
             time.sleep(1)
 
     log("💤 Kapanıyor…")
+    notify("💤 Scheduler kapanıyor…")
 
 if __name__ == "__main__":
     main()

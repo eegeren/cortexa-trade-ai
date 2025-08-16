@@ -4,11 +4,19 @@
   <meta charset="utf-8" />
   <title>Cortexa Advisor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- API hedefi -->
   <meta name="api-base" content="https://www.cortexaai.net/api">
+
+  <!-- Favicons -->
   <link rel="icon" type="image/png" sizes="32x32" href="logo.png">
   <link rel="apple-touch-icon" sizes="180x180" href="logo.png">
   <meta name="theme-color" content="#0f172a" />
+
+  <!-- Markdown renderer -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- Stil -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,58 +31,92 @@
         </div>
       </div>
       <div class="spacer"></div>
-      <div id="userArea">
-        <button class="icon-btn" id="loginBtn">Giriş</button>
-        <button class="icon-btn" id="signupBtn">Üye Ol</button>
-      </div>
+      <div id="userArea" class="user-pill" style="display:none"></div>
+      <button class="icon-btn" id="loginBtn">Giriş</button>
+      <button class="icon-btn" id="signupBtn">Üye Ol</button>
       <button class="icon-btn" id="themeBtn">🌗 Tema</button>
     </div>
   </div>
 
+  <!-- ANA GRID -->
   <div class="wrap">
-    <!-- SOL: Son Sorular -->
-    <div class="history" id="historyPanel">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <h4 style="margin:2px 0 10px 0">Son Sorular</h4>
-        <!-- Yeni: Son konuşmayı sil -->
-        <button id="clearLastBtn" class="icon-btn" style="height:32px;line-height:32px;padding:0 10px;">Son konuşmayı sil</button>
-      </div>
+
+    <!-- SOL SİDEBAR: Son Sorular -->
+    <aside class="sidebar left history" id="historyPanel">
+      <h4>
+        Son Sorular
+        <button id="clearLastBtn" title="Son konuşmayı sil">Son konuşmayı sil</button>
+      </h4>
       <div id="histList"></div>
-    </div>
+    </aside>
 
-    <!-- ORTA: Chat -->
-    <div class="board" id="board"></div>
+    <!-- ORTA ALAN: Chat + Kontrol + Chip'ler -->
+    <main class="center">
+      <!-- SOHBET PANELİ -->
+      <div class="board" id="board"></div>
 
-    <!-- QUICK ACTIONS -->
-    <div class="quick" id="quick"></div>
+      <!-- KONTROL ÇUBUĞU -->
+      <div class="controlbar">
+        <div class="ctrl" style="grid-column:1;">
+          <div class="lbl">Soru</div>
+          <textarea id="q" rows="1" placeholder="Sorunu yaz ya da aşağıdaki önerilerden birine tıkla…"></textarea>
+        </div>
+        <button id="send" class="btn">Gönder</button>
 
-    <!-- ÖRNEK CHIPS (öneriler altta, yapıyı koruyoruz) -->
-    <div class="chips" id="examples">
-      <div class="chip" data-q="btc vs euro (6 ay, orta risk, 100k, %2 stop)">btc vs euro (ör.)</div>
-      <div class="chip" data-q="altın almalı mıyım? (12 ay, düşük risk)">altın almalı mıyım?</div>
-      <div class="chip" data-q="Apple mı Tesla mı? (orta risk, 6 ay, 50k)">Apple vs Tesla</div>
-      <div class="chip" data-q="btc kaldıraçlı öner (orta risk, 50k, %1.5 stop)">btc kaldıraçlı öner</div>
-    </div>
-
-    <!-- FORM -->
-    <div class="controlbar">
-      <div class="ctrl" style="grid-column:1;">
-        <div class="lbl">Soru</div>
-        <textarea id="q" rows="1" placeholder="Sorunu yaz ya da yukarıdaki önerilerden birine tıkla…"></textarea>
+        <!-- (İsteğe bağlı gizli alanlar) -->
+        <div class="ctrl small" style="display:none">
+          <div class="lbl">Risk</div>
+          <select id="risk"><option value="">Seç</option><option>dusuk</option><option>orta</option><option>yuksek</option></select>
+        </div>
+        <div class="ctrl small" style="display:none">
+          <div class="lbl">Vade</div>
+          <input id="horizon" type="text" placeholder="örn. 6 ay" />
+        </div>
+        <div class="ctrl small" style="display:none">
+          <div class="lbl">Sermaye</div>
+          <input id="capital" type="number" placeholder="örn. 100000" />
+        </div>
+        <div class="ctrl small" style="display:none">
+          <div class="lbl">Stop</div>
+          <input id="stop" type="number" step="0.001" placeholder="0.02" />
+        </div>
+        <div class="ctrl small" style="display:none">
+          <div class="lbl">Fiyatlar</div>
+          <label>
+            <input id="prices" type="checkbox" checked /> Ekle
+          </label>
+        </div>
       </div>
-      <button id="send" class="btn">Gönder</button>
 
-      <!-- Gizli alanlar (yapıyı korumak için) -->
-      <div class="ctrl small" style="display:none">
-        <div class="lbl">Risk</div>
-        <select id="risk"><option value="">Seç</option><option>dusuk</option><option>orta</option><option>yuksek</option></select>
-        <div class="riskbar"><span id="riskFill"></span></div>
+      <!-- ÖRNEK CHIPS (en altta) -->
+      <div class="chips" id="examples">
+        <div class="chip" data-q="btc vs euro (6 ay, orta risk, 100k, %2 stop)">btc vs euro (ör.)</div>
+        <div class="chip" data-q="altın almalı mıyım? (12 ay, düşük risk)">altın almalı mıyım?</div>
+        <div class="chip" data-q="Apple mı Tesla mı? (orta risk, 6 ay, 50k)">Apple vs Tesla</div>
+        <div class="chip" data-q="btc kaldıraçlı öner (orta risk, 50k, %1.5 stop)">btc kaldıraçlı öner</div>
       </div>
-      <div class="ctrl small" style="display:none"><div class="lbl">Vade</div><input id="horizon" type="text" placeholder="örn. 6 ay" /></div>
-      <div class="ctrl small" style="display:none"><div class="lbl">Sermaye</div><input id="capital" type="number" placeholder="örn. 100000" /></div>
-      <div class="ctrl small" style="display:none"><div class="lbl">Stop</div><input id="stop" type="number" step="0.001" placeholder="0.02" /></div>
-      <div class="ctrl small" style="display:none"><div class="lbl">Fiyatlar</div><label><input id="prices" type="checkbox" checked /> Ekle</label></div>
-    </div>
+    </main>
+
+    <!-- SAĞ SİDEBAR: Günlük Özet -->
+    <aside class="sidebar right">
+      <div class="digest">
+        <div class="digest-card" id="dg-mood">
+          <div class="dg-icon">🌤</div>
+          <div class="dg-title">Bugünkü Kripto Havası</div>
+          <div class="dg-text">Piyasa yatay (~0.5%). Haber akışı belirleyici.</div>
+        </div>
+        <div class="digest-card" id="dg-opportunity">
+          <div class="dg-icon">🚀</div>
+          <div class="dg-title">Potansiyel Fırsat</div>
+          <div class="dg-text">SOL-USD dikkat çekiyor: hacim/ivme güçlü.</div>
+        </div>
+        <div class="digest-card" id="dg-risk">
+          <div class="dg-icon">⚠️</div>
+          <div class="dg-title">Risk Uyarısı</div>
+          <div class="dg-text">Aşırı sinyal yok. Standart risk yönetimi yeterli.</div>
+        </div>
+      </div>
+    </aside>
   </div>
 
   <!-- WELCOME MODAL -->
@@ -101,7 +143,7 @@
     </div>
   </div>
 
-  <!-- Login / Signup modal’ları (aynı) -->
+  <!-- Giriş / Üye Ol Modalları -->
   <div class="modal" id="loginModal">
     <div class="modal-card">
       <h3>Giriş Yap</h3>
@@ -131,6 +173,7 @@
     </div>
   </div>
 
+  <!-- Uygulama scripti -->
   <script src="script.js"></script>
 </body>
 </html>

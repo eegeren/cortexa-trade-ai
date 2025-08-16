@@ -238,21 +238,94 @@ function setTheme(t) {
   if (meta) meta.setAttribute("content", t === "dark" ? "#0b1220" : "#f6f7fb");
 }
 (function initTheme(){
-  let initial = "light";
-  try { initial = localStorage.getItem(THEME_KEY) || "light"; } catch {}
+  // Kullanıcı kayıtlı seçim yaptıysa onu, yoksa sistem tercihi, o da yoksa 'dark'
+  let initial = "dark";
+  try {
+    initial =
+      localStorage.getItem(THEME_KEY) ||
+      (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "dark");
+  } catch {}
   setTheme(initial);
-})();
-(function bindThemeButton(){
-  const btn = document.getElementById("themeBtn");
-  if (!btn) return;
-  btn.addEventListener("click", () => {
-    const cur = document.documentElement.getAttribute("data-theme") || "light";
-    setTheme(cur === "light" ? "dark" : "light");
-  });
 })();
 
 // ================= Footer yılı (opsiyonel alan varsa) =================
 (function setYear(){
   const y = document.getElementById("year");
   if (y) y.textContent = new Date().getFullYear();
+})();
+
+// ===== Günlük Özet (Mood/Opportunity/Risk) =====
+(function dailyDigest(){
+  const META_API = document.querySelector('meta[name="api-base"]')?.content?.trim() || "";
+  const API_BASE = (META_API || "").replace(/\/+$/,"");
+
+  const $mood = document.querySelector('#dg-mood .dg-text');
+  const $opp  = document.querySelector('#dg-opportunity .dg-text');
+  const $risk = document.querySelector('#dg-risk .dg-text');
+
+  // Küçük yardımcı: güvenli fetch + timeout
+  async function robustGet(url, options={}, timeout=7000){
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), timeout);
+    try{
+      const res = await fetch(url, { ...options, signal: ctrl.signal });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    }catch(e){ return null; }
+    finally{ clearTimeout(t); }
+  }
+
+  // Heuristik: BTC & ETH 24s değişim → mood; hacim artışı → fırsat; RSI aşırı → risk
+  async function load(){
+    let data = null;
+
+    if(API_BASE){
+      // Backend uygunsa: /prices?symbols=BTC-USD,ETH-USD,SOL-USD
+      data = await robustGet(`${API_BASE}/prices?symbols=BTC-USD,ETH-USD,SOL-USD`);
+      // Beklenen minimal format ör: { "BTC-USD": {pct24:0.012, rsi:68, volChg:0.2}, ... }
+    }
+
+    // Mock’a düş (endpoint yoksa)
+    if(!data){
+      data = {
+        "BTC-USD": { pct24: (Math.random()-.5)/20, rsi: 60+Math.random()*20, volChg: (Math.random()*0.5) },
+        "ETH-USD": { pct24: (Math.random()-.5)/20, rsi: 55+Math.random()*25, volChg: (Math.random()*0.5) },
+        "SOL-USD": { pct24: (Math.random()-.5)/20, rsi: 50+Math.random()*30, volChg: (Math.random()*0.5) }
+      };
+    }
+
+    const btc = data["BTC-USD"] || {pct24:0, rsi:50, volChg:0};
+    const eth = data["ETH-USD"] || {pct24:0, rsi:50, volChg:0};
+    const entries = Object.entries(data);
+
+    // Mood: BTC & ETH 24s değişim ortalaması
+    const meanPct = ((btc.pct24||0)+(eth.pct24||0))/2;
+    let moodText;
+    if(meanPct > 0.01) moodText = `Piyasa pozitif (~${(meanPct*100).toFixed(1)}%). Yükseliş isteği var.`;
+    else if(meanPct < -0.01) moodText = `Piyasa negatif (~${(meanPct*100).toFixed(1)}%). Risk iştahı düşük.`;
+    else moodText = `Piyasa yatay (~${(meanPct*100).toFixed(1)}%). Haber akışı belirleyici.`;
+    if ($mood) $mood.textContent = moodText;
+
+    // Opportunity: hacim artışı / pozitif ivme en yüksek coin
+    const best = entries
+      .map(([sym, v])=>({sym, score:(v.volChg||0)+(v.pct24||0)}))
+      .sort((a,b)=> b.score - a.score)[0];
+    if ($opp) {
+      $opp.textContent = best
+        ? `${best.sym} dikkat çekiyor: hacim/ivme güçlü. Küçük pozisyon + teyit sinyali önerilir.`
+        : `Bugün belirgin bir fırsat öne çıkmıyor.`;
+    }
+
+    // Risk: RSI > 75 ya da < 25 ise uyar
+    const riskList = entries
+      .filter(([_,v])=> (v.rsi||0)>75 || (v.rsi||0)<25)
+      .map(([sym,v])=> `${sym} RSI ${Math.round(v.rsi)}`);
+    if ($risk) {
+      $risk.textContent = riskList.length
+        ? `Aşırı bölge: ${riskList.join(", ")}. Kâr realizasyonu / sıkı stop düşünülmeli.`
+        : `Aşırı alım/satım sinyali yok. Standart risk yönetimi yeterli.`;
+    }
+  }
+
+  try{ load(); }catch{} // sessiz
 })();

@@ -1,93 +1,130 @@
-# src/live/advice_server.py
+# -*- coding: utf-8 -*-
+# ============================================================
+# Cortexa Advice API (FastAPI) — tek dosya
+# ============================================================
 from __future__ import annotations
 
-# ── Std / third-party
 import os
 import math
+import time
+import re
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from starlette.responses import FileResponse
 from starlette.staticfiles import StaticFiles
 
-# ── Domain: guardrails / copy blocks
+from pydantic import BaseModel, Field
+try:
+    # pydantic v2
+    from pydantic import AliasChoices
+    _ALIAS = AliasChoices
+except Exception:  # pydantic v1 fallback (tek alias)
+    def _ALIAS(*names):  # basit emülasyon; ilkini kullanır
+        return names[0]
+
+# -----------------------------
+# Guardrails / metin blokları
+# -----------------------------
 from src.advice.guardrails import (
-    build_intro,
-    options_section,
-    sample_portfolios,
-    action_checklist,
-    PROFILE_QUESTIONS,
-    tailor_by_profile,
-    topic_compare,
-    build_dca_risk_plan,
-    build_brief_answer,
-    detect_leverage_intent,
-    build_leverage_answer,
+    build_intro, options_section, sample_portfolios,
+    action_checklist, PROFILE_QUESTIONS, tailor_by_profile,
+    topic_compare, build_dca_risk_plan, build_brief_answer,
+    detect_leverage_intent, build_leverage_answer
 )
 
-# ── Domain: asset detection / defaults
+# -----------------------------
+# Varlık tespiti & varsayılan stop
+# -----------------------------
 from src.advice.assets import (
-    detect_assets_in_text,
-    default_stop_for,
+    detect_assets_in_text, default_stop_for,
 )
 
-# ── Live prices
+# -----------------------------
+# Canlı fiyat beslemeleri
+# -----------------------------
 from src.advice.price_feeds import (
     map_assets_to_feed_codes,
     fetch_live_prices_cached,
     format_live_table,
 )
 
-# ── Leverage helpers
+# -----------------------------
+# (Opsiyonel) Kaldıraç modülü
+# -----------------------------
 from src.advice.leverage import (
     parse_leverage_from_text,
-    LeverageInputs,
-    build_leverage_plan,
-    format_leverage_markdown,
+    LeverageInputs, build_leverage_plan, format_leverage_markdown
 )
 
-# ------------------------------------------------------------------------------
-# FastAPI app
-# ------------------------------------------------------------------------------
+# ============================================================
+# APP
+# ============================================================
 app = FastAPI(title="Cortexa Advice API")
 
-# CORS (geliştirme için geniş; prod’da daraltılabilir)
+# CORS (geliştirme için açık bırakıldı)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # prod’da uygun domain(ler)i yaz
+    allow_origins=["*"],  # prod'da kısıtlayın
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ------------------------------------------------------------------------------
-# Health
-# ------------------------------------------------------------------------------
+# ============================================================
+# WEB (statik) — index.html kökten servis edilir
+# ============================================================
+def _pick_web_dir() -> Optional[Path]:
+    # 1) ENV ile gelmişse
+    env_dir = os.getenv("WEB_DIR")
+    if env_dir:
+        p = Path(env_dir)
+        if (p / "index.html").exists():
+            return p.resolve()
+
+    # 2) Çalışma dizini /web
+    p2 = Path.cwd() / "web"
+    if (p2 / "index.html").exists():
+        return p2.resolve()
+
+    # 3) Bu dosyanın 2 üstünde /web (…/src/live → kök)
+    here = Path(__file__).resolve()
+    if len(here.parents) >= 3:
+        p3 = here.parents[2] / "web"
+        if (p3 / "index.html").exists():
+            return p3.resolve()
+
+    return None
+
+WEB_DIR = _pick_web_dir()
+INDEX_FILE: Optional[Path] = (WEB_DIR / "index.html") if WEB_DIR else None
+
+# /assets mount (varsa)
+if WEB_DIR and (WEB_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(WEB_DIR / "assets")), name="assets")
+
+# ============================================================
+# Sağlık
+# ============================================================
 @app.get("/health")
 def health():
     return {"ok": True}
 
-@app.get("/")
-def root_info():
-    # Kökte SPA servis edileceğinden, burası çoğu dağıtımda kullanılmayacak.
-    # Yine de basit bir bilgi döndürelim.
-    return {"status": "ok", "service": "Cortexa Advice API"}
-
-# ------------------------------------------------------------------------------
-# Pydantic Schemas
-# ------------------------------------------------------------------------------
+# ============================================================
+# Şemalar (hem yeni hem eski alan adlarını kabul eder)
+# ============================================================
 class AdviceQuery(BaseModel):
-    user_query: str = Field(..., example="altın mı BTC mi? (6 ay, orta risk)")
+    user_query: str = Field(..., validation_alias=_ALIAS("user_query", "question"))
     goal: Optional[str] = ""
-    horizon: Optional[str] = ""
+    horizon: Optional[str] = Field("", validation_alias=_ALIAS("horizon", "vade"))
     risk: Optional[str] = ""
-    capital: Optional[float] = None
-    stop_pct: Optional[float] = None
-    show_prices: Optional[bool] = True
-    suppress_disclaimer: Optional[bool] = False  # Terms onaylandıysa UI true gönderir
+    capital: Optional[float] = Field(None, validation_alias=_ALIAS("capital", "sermaye"))
+    stop_pct: Optional[float] = Field(None, validation_alias=_ALIAS("stop_pct", "stop"))
+    show_prices: Optional[bool] = Field(True, validation_alias=_ALIAS("show_prices", "fiyatlar"))
+    # UI tarafında terms onayı varsa uyarıyı bastırmak için
+    suppress_disclaimer: Optional[bool] = False
 
 class PriceQuery(BaseModel):
     assets: List[str] = Field(..., example=["btc", "xau", "usd", "eur"])
@@ -103,7 +140,7 @@ class SnapshotResponse(BaseModel):
 class PlanQuery(BaseModel):
     user_query: str
     capital: float = Field(..., example=50000.0)
-    risk_per_trade: float = Field(0.01, example=0.02)  # 0.01 = %1
+    risk_per_trade: float = Field(0.01, example=0.02)
     dca_steps: int = Field(6, ge=1, le=24)
     stop_pct: Optional[float] = Field(None, example=0.06)
     use_live_price: bool = True
@@ -118,15 +155,15 @@ class CompareQuery(BaseModel):
 class LeverageQuery(BaseModel):
     user_query: str = Field(..., example="btc kaldıraç 5x, 100k sermaye, %2 stop")
     capital: float = Field(..., example=100000.0)
-    risk_per_trade: float = Field(0.01, example=0.01, description="0.01 = %1")
-    stop_pct: Optional[float] = Field(None, example=0.02, description="0.02 = %2")
+    risk_per_trade: float = Field(0.01, example=0.01)
+    stop_pct: Optional[float] = Field(None, example=0.02)
     leverage: Optional[int] = Field(None, ge=1, le=50)
-    maintenance_margin: float = Field(0.01, description="Varsayılan %1")
+    maintenance_margin: float = Field(0.01, description="Yaklaşık bakım marjı (varsayılan %1)")
     use_live_price: bool = True
 
-# ------------------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------------------
+# ============================================================
+# Yardımcılar
+# ============================================================
 def _live_block_for_query_text(text: str) -> str:
     keys = detect_assets_in_text(text)
     if not keys:
@@ -138,43 +175,39 @@ def _live_block_for_query_text(text: str) -> str:
     return format_live_table(snap)
 
 def _is_gibberish_or_unknown(q: str) -> bool:
-    """
-    Tamamen alakasız / varlık tespit edilemeyen kısa girdiler için filtre.
-    """
     if not q or len(q.strip()) < 2:
         return True
     assets = detect_assets_in_text(q)
     if assets:
         return False
-    keywords = [
-        "altın","xau","gümüş","xag","petrol","wti","hisse","endeks","sp500","nasdaq",
-        "btc","bitcoin","eth","ethereum","sol","solana","kripto","dolar","usd","euro",
-        "eur","tahvil","bono","faiz","döviz","usdtry","eurtry","kaldıraç","leverage","x"
-    ]
+    keywords = ["altın","xau","gümüş","xag","petrol","wti","hisse","endeks","sp500","nasdaq",
+                "btc","bitcoin","eth","ethereum","sol","solana","kripto","dolar","usd","euro",
+                "eur","tahvil","bono","faiz","döviz","usdtry","eurtry","kaldıraç","leverage","x"]
     ql = q.lower()
     return not any(k in ql for k in keywords)
 
-# basit inline parser (risk/capital/stop)
-import re
+_NUM_RE = re.compile(r"(\d+(?:[\.,]\d+)?)")
 def _parse_inline_params(text: str) -> dict:
-    out = {"risk": "", "capital": None, "stop_pct": None}
+    out = {"risk":"", "capital":None, "stop_pct":None}
     if not text:
         return out
     t = text.lower()
 
-    if any(w in t for w in ("düşük", "dusuk", "low")): out["risk"] = "dusuk"
-    elif any(w in t for w in ("yüksek","yuksek","high")): out["risk"] = "yuksek"
-    elif any(w in t for w in ("orta","medium")): out["risk"] = "orta"
+    if "düşük" in t or "dusuk" in t or "low" in t: out["risk"]="dusuk"
+    elif "yüksek" in t or "yuksek" in t or "high" in t: out["risk"]="yuksek"
+    elif "orta" in t or "medium" in t: out["risk"]="orta"
 
+    cap = None
     m = re.search(r"(\d+(?:[\.,]\d+)?)(\s*[kKmM])", t)
     if m:
         val = float(m.group(1).replace(",", "."))
-        mul = 1_000 if m.group(2).strip().lower() == "k" else 1_000_000
-        out["capital"] = val * mul
+        suf = m.group(2).strip().lower()
+        cap = val * (1_000 if suf=="k" else 1_000_000)
     else:
         m2 = re.search(r"\b(\d{5,})\b", t)
         if m2:
-            out["capital"] = float(m2.group(1))
+            cap = float(m2.group(1))
+    out["capital"] = cap
 
     ms = re.search(r"%\s*(\d+(?:[\.,]\d+)?)", t)
     if ms:
@@ -185,22 +218,22 @@ def _parse_inline_params(text: str) -> dict:
             out["stop_pct"] = float(ms2.group(0).replace(",", "."))
     return out
 
-# ------------------------------------------------------------------------------
-# Routes
-# ------------------------------------------------------------------------------
-
+# ============================================================
+# /advice
+# ============================================================
 @app.post("/advice")
 def advice(q: AdviceQuery) -> Dict[str, str]:
-    # 1) Alakasız / çok kısa istekleri reddet
+    # 1) Boş/alakasız istekleri kibarca geri çevir
     if _is_gibberish_or_unknown(q.user_query):
         guide = (
             "**Geçersiz/eksik istek** — şu formatta deneyebilirsin:\n"
-            "- `btc kaldıraçlı (orta risk, 50k, %1.5 stop)`\n"
+            "- `btc vs euro (6 ay, orta risk, 100k, %2 stop)`\n"
             "- `altın almalı mıyım? (12 ay, düşük risk)`\n"
+            "- `btc kaldıraçlı öner (orta risk, 50k, %1.5 stop)`\n"
         )
         return {"answer": guide}
 
-    # 2) Kaldıraçlı niyet = kısa ve odaklı yanıt
+    # 2) Kaldıraç niyeti → kısa ve odaklı cevap
     if detect_leverage_intent(q.user_query):
         keys = detect_assets_in_text(q.user_query) or []
         asset_key = keys[0] if keys else "btc"
@@ -215,8 +248,8 @@ def advice(q: AdviceQuery) -> Dict[str, str]:
         entry_price = None
         try:
             items = map_assets_to_feed_codes([asset_key])
-            snap = fetch_live_prices_cached(items, ttl=15)
-            entry_price = (snap.get(asset_key) or {}).get("price")
+            snap = fetch_live_prices_cached(items, ttl=15) if items else {}
+            entry_price = snap.get(asset_key, {}).get("price")
         except Exception:
             pass
 
@@ -255,14 +288,18 @@ def advice(q: AdviceQuery) -> Dict[str, str]:
     )
     return {"answer": body}
 
-
+# ============================================================
+# /prices
+# ============================================================
 @app.post("/prices", response_model=SnapshotResponse)
 def prices(p: PriceQuery):
     items = map_assets_to_feed_codes(p.assets or [])
     snap = fetch_live_prices_cached(items, ttl=15) if items else {}
     return {"snapshot": snap}
 
-
+# ============================================================
+# /plan
+# ============================================================
 @app.post("/plan")
 def plan(p: PlanQuery) -> Dict[str, object]:
     keys = detect_assets_in_text(p.user_query) or []
@@ -274,13 +311,13 @@ def plan(p: PlanQuery) -> Dict[str, object]:
     entry_price = None
     if p.use_live_price:
         items = map_assets_to_feed_codes([asset_key])
-        snap = fetch_live_prices_cached(items, ttl=15)
+        snap = fetch_live_prices_cached(items, ttl=15) if items else {}
         v = snap.get(asset_key, {})
         entry_price = v.get("price", None)
         if entry_price and entry_price > 0:
             qty = pos_cash / entry_price
 
-    resp: Dict[str, object] = {
+    resp = {
         "message": "ok",
         "meta": {
             "asset": asset_key.upper(),
@@ -299,6 +336,7 @@ def plan(p: PlanQuery) -> Dict[str, object]:
             "note": "Miktar için: position_cash / entry_price. Stop mesafesini varlığın oynaklığına göre ayarla.",
         },
     }
+
     if entry_price:
         resp["market"] = {"entry_price": round(float(entry_price), 6)}
     if qty:
@@ -306,7 +344,9 @@ def plan(p: PlanQuery) -> Dict[str, object]:
 
     return resp
 
-
+# ============================================================
+# /compare
+# ============================================================
 @app.post("/compare")
 def compare_assets(p: CompareQuery) -> Dict[str, str]:
     keys = detect_assets_in_text(p.user_query)
@@ -335,7 +375,9 @@ def compare_assets(p: CompareQuery) -> Dict[str, str]:
 
     return {"compare": table + ("\n" + live_tbl if live_tbl else "")}
 
-
+# ============================================================
+# /leverage
+# ============================================================
 @app.post("/leverage")
 def leverage_endpoint(p: LeverageQuery) -> Dict[str, str]:
     keys = detect_assets_in_text(p.user_query) or []
@@ -347,7 +389,7 @@ def leverage_endpoint(p: LeverageQuery) -> Dict[str, str]:
     entry_price = None
     if p.use_live_price:
         items = map_assets_to_feed_codes([asset_key])
-        snap = fetch_live_prices_cached(items, ttl=15)
+        snap = fetch_live_prices_cached(items, ttl=15) if items else {}
         entry_price = (snap.get(asset_key, {}) or {}).get("price")
 
     plan = build_leverage_plan(LeverageInputs(
@@ -359,37 +401,25 @@ def leverage_endpoint(p: LeverageQuery) -> Dict[str, str]:
         entry_price=entry_price,
         maintenance_margin=p.maintenance_margin,
     ))
-
     text = format_leverage_markdown(asset_key, entry_price, plan, lev)
     return {"text": text}
 
-# ------------------------------------------------------------------------------
-# Static SPA serving (SAFE): do not mount "/" (avoid shadowing API routes)
-# ------------------------------------------------------------------------------
-HERE = Path(__file__).resolve()
-WEB_DIR = (HERE.parents[2] / "web").resolve()
-INDEX_FILE = WEB_DIR / "index.html"
-
-# /assets mount (optional)
-assets_dir = WEB_DIR / "assets"
-if assets_dir.is_dir():
-    app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
-
-# Root → index.html
+# ============================================================
+# SPA — index.html (kök) ve fallback
+# ============================================================
 @app.get("/", include_in_schema=False)
 def serve_index_root():
-    if INDEX_FILE.is_file():
+    if INDEX_FILE and INDEX_FILE.exists():
         return FileResponse(str(INDEX_FILE), media_type="text/html; charset=utf-8")
+    # index yoksa basit durum döndür
     return {"ok": True, "service": "Cortexa Advice API"}
-
-# SPA fallback, API yollarını hariç tut
-API_PREFIXES = ("advice", "prices", "plan", "compare", "health", "leverage")
 
 @app.get("/{full_path:path}", include_in_schema=False)
 def spa_fallback(full_path: str):
-    if any(full_path.startswith(p) for p in API_PREFIXES):
-        # API route'ları için gerçek eşleşmeye izin ver (404 dön, FastAPI route bulsun)
+    # API yolları fallback'e düşmesin
+    api_prefixes = ("advice", "prices", "plan", "compare", "leverage", "health")
+    if full_path.startswith(api_prefixes):
         raise HTTPException(status_code=404, detail="Not Found")
-    if INDEX_FILE.is_file():
+    if INDEX_FILE and INDEX_FILE.exists():
         return FileResponse(str(INDEX_FILE), media_type="text/html; charset=utf-8")
     raise HTTPException(status_code=404, detail="index.html not found")
